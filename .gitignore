@@ -25,6 +25,7 @@ backend/htmlcov/
 backend/.env
 backend/.env.*
 !backend/.env.example
+backend/*.egg-info/
 
 # Editor directories and files
 .vscode/*
