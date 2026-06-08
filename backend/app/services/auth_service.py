@@ -10,8 +10,8 @@ from app.crud.user import (
     touch_user_last_login,
     update_user_profile,
 )
-from app.schemas.auth import OAuthProfile
 from app.models.user import User
+from app.schemas.auth import OAuthProfile
 
 
 def upsert_user_from_oauth_profile(db: Session, profile: OAuthProfile) -> User:

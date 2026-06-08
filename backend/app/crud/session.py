@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -42,12 +42,12 @@ def get_active_session_by_token(db: Session, token: str) -> UserSession | None:
         return None
     if user_session.revoked_at is not None:
         return None
-    if user_session.expires_at <= datetime.now(timezone.utc):
+    if user_session.expires_at <= datetime.now(UTC):
         return None
     return user_session
 
 
 def revoke_session(db: Session, user_session: UserSession) -> UserSession:
-    user_session.revoked_at = datetime.now(timezone.utc)
+    user_session.revoked_at = datetime.now(UTC)
     db.flush()
     return user_session

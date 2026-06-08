@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -25,7 +25,7 @@ def create_user(
     name: str | None = None,
     avatar_url: str | None = None,
 ) -> User:
-    user = User(email=email, name=name, avatar_url=avatar_url, last_login_at=datetime.now(timezone.utc))
+    user = User(email=email, name=name, avatar_url=avatar_url, last_login_at=datetime.now(UTC))
     db.add(user)
     db.flush()
     return user
@@ -47,7 +47,7 @@ def update_user_profile(
 
 
 def touch_user_last_login(db: Session, user: User) -> User:
-    user.last_login_at = datetime.now(timezone.utc)
+    user.last_login_at = datetime.now(UTC)
     db.flush()
     return user
 

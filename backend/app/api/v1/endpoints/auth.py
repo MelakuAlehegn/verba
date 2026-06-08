@@ -11,9 +11,11 @@ from app.core.security import OAUTH_STATE_COOKIE_NAME, SESSION_COOKIE_NAME, gene
 from app.models.user import User
 from app.schemas.user import UserRead
 from app.services.auth_service import upsert_user_from_oauth_profile
-from app.services.oauth_service import build_google_authorization_url, exchange_code_for_oauth_profile
-from app.services.session_service import logout_session_by_token
-from app.services.session_service import create_session_for_user
+from app.services.oauth_service import (
+    build_google_authorization_url,
+    exchange_code_for_oauth_profile,
+)
+from app.services.session_service import create_session_for_user, logout_session_by_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -50,7 +52,9 @@ def handle_google_oauth_callback(
     if not expected_state or state != expected_state:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state")
     if code is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing authorization code")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Missing authorization code"
+        )
 
     profile = exchange_code_for_oauth_profile(settings, code)
     user = upsert_user_from_oauth_profile(db, profile)

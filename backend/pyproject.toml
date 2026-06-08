@@ -22,6 +22,7 @@ dependencies = [
 dev = [
   "httpx>=0.27,<1.0",
   "pytest>=8.0,<9.0",
+  "ruff>=0.6,<1.0",
 ]
 
 [tool.setuptools]
@@ -35,3 +36,26 @@ namespaces = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# Alembic migrations are machine-generated and env.py has intentional import ordering.
+extend-exclude = ["alembic"]
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: isort, UP: pyupgrade, B: flake8-bugbear
+select = ["E", "W", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency injectors are called in argument defaults by design (B008).
+extend-immutable-calls = [
+  "fastapi.Depends",
+  "fastapi.Query",
+  "fastapi.Path",
+  "fastapi.Body",
+  "fastapi.Cookie",
+  "fastapi.Header",
+  "fastapi.Form",
+  "fastapi.File",
+]

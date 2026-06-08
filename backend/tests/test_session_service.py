@@ -2,7 +2,10 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
 
-from app.services.session_service import get_authenticated_user_from_session_token, logout_session_by_token
+from app.services.session_service import (
+    get_authenticated_user_from_session_token,
+    logout_session_by_token,
+)
 
 
 def test_get_authenticated_user_from_session_token_returns_user(monkeypatch) -> None:

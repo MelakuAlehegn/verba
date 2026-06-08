@@ -3,10 +3,12 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.security import OAUTH_STATE_COOKIE_NAME
-from app.core.database import get_db
 from app.main import create_app
+
+AUTH_MODULE = "app.api.v1.endpoints.auth"
 
 
 def test_auth_me_returns_current_user_payload() -> None:
@@ -48,9 +50,15 @@ def test_google_callback_sets_session_cookie_and_redirects(monkeypatch) -> None:
 
     app.dependency_overrides[get_db] = lambda: db
 
-    monkeypatch.setattr("app.api.v1.endpoints.auth.exchange_code_for_oauth_profile", lambda *args, **kwargs: SimpleNamespace())
-    monkeypatch.setattr("app.api.v1.endpoints.auth.upsert_user_from_oauth_profile", lambda *args, **kwargs: current_user)
-    monkeypatch.setattr("app.api.v1.endpoints.auth.create_session_for_user", lambda *args, **kwargs: "session-token")
+    monkeypatch.setattr(
+        f"{AUTH_MODULE}.exchange_code_for_oauth_profile", lambda *a, **k: SimpleNamespace()
+    )
+    monkeypatch.setattr(
+        f"{AUTH_MODULE}.upsert_user_from_oauth_profile", lambda *a, **k: current_user
+    )
+    monkeypatch.setattr(
+        f"{AUTH_MODULE}.create_session_for_user", lambda *a, **k: "session-token"
+    )
 
     client = TestClient(app)
     client.cookies.set(OAUTH_STATE_COOKIE_NAME, "state-token")

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.oauth_account import OAuthAccount
-from uuid import UUID
 
 
 def get_oauth_account(

@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.security import generate_token
-from app.crud.session import create_session, get_active_session_by_token, get_session_by_token, revoke_session
+from app.crud.session import (
+    create_session,
+    get_active_session_by_token,
+    get_session_by_token,
+    revoke_session,
+)
 from app.models.user import User
 
 
@@ -38,7 +43,7 @@ def create_session_for_user(
     ip_address: str | None = None,
 ) -> str:
     session_token = generate_token()
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.session_ttl_days)
+    expires_at = datetime.now(UTC) + timedelta(days=settings.session_ttl_days)
     create_session(
         db,
         user_id=user.id,

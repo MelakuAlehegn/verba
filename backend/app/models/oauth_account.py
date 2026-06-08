@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlalchemy import ForeignKey, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, relationship, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 
@@ -15,7 +15,9 @@ if TYPE_CHECKING:
 class OAuthAccount(Base, TimestampMixin):
     __tablename__ = "oauth_accounts"
     __table_args__ = (
-        UniqueConstraint("provider", "provider_account_id", name="uq_oauth_accounts_provider_account_id"),
+        UniqueConstraint(
+            "provider", "provider_account_id", name="uq_oauth_accounts_provider_account_id"
+        ),
         UniqueConstraint("user_id", "provider", name="uq_oauth_accounts_user_provider"),
     )
 
