@@ -11,6 +11,7 @@ from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.auth_session import UserSession
+    from app.models.chat import Chat
     from app.models.oauth_account import OAuthAccount
     from app.models.user_setting import UserSetting
 
@@ -35,6 +36,10 @@ class User(Base, TimestampMixin):
         cascade="all, delete-orphan",
     )
     oauth_accounts: Mapped[list[OAuthAccount]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    chats: Mapped[list[Chat]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
