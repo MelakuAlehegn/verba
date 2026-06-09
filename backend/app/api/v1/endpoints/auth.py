@@ -4,13 +4,18 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_optional_session_token
 from app.core.security import OAUTH_STATE_COOKIE_NAME, SESSION_COOKIE_NAME, generate_token
 from app.models.user import User
+from app.schemas.auth import LoginRequest, RegisterRequest
 from app.schemas.user import UserRead
-from app.services.auth_service import upsert_user_from_oauth_profile
+from app.services.auth_service import (
+    authenticate_user,
+    register_user_with_password,
+    upsert_user_from_oauth_profile,
+)
 from app.services.oauth_service import (
     build_google_authorization_url,
     exchange_code_for_oauth_profile,
@@ -18,6 +23,31 @@ from app.services.oauth_service import (
 from app.services.session_service import create_session_for_user, logout_session_by_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def set_session_cookie(response: Response, session_token: str, settings: Settings) -> None:
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=session_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        path="/",
+        max_age=settings.session_ttl_days * 24 * 60 * 60,
+    )
+
+
+def _issue_session(
+    response: Response, db: Session, user: User, request: Request, settings: Settings
+) -> None:
+    session_token = create_session_for_user(
+        db,
+        user,
+        settings,
+        user_agent=request.headers.get("user-agent"),
+        ip_address=request.client.host if request.client is not None else None,
+    )
+    set_session_cookie(response, session_token, settings)
 
 
 @router.get("/google")
@@ -70,17 +100,50 @@ def handle_google_oauth_callback(
         url=f"{settings.frontend_url}/app",
         status_code=status.HTTP_303_SEE_OTHER,
     )
-    redirect_response.set_cookie(
-        key=SESSION_COOKIE_NAME,
-        value=session_token,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="lax",
-        path="/",
-        max_age=settings.session_ttl_days * 24 * 60 * 60,
-    )
+    set_session_cookie(redirect_response, session_token, settings)
     redirect_response.delete_cookie(OAUTH_STATE_COOKIE_NAME, path="/")
     return redirect_response
+
+
+@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+def register_with_password(
+    payload: RegisterRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> UserRead:
+    settings = get_settings()
+    user = register_user_with_password(
+        db,
+        email=payload.email,
+        password=payload.password,
+        name=payload.name,
+    )
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+        )
+
+    _issue_session(response, db, user, request, settings)
+    return UserRead.model_validate(user)
+
+
+@router.post("/login", response_model=UserRead)
+def login_with_password(
+    payload: LoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> UserRead:
+    settings = get_settings()
+    user = authenticate_user(db, email=payload.email, password=payload.password)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
+        )
+
+    _issue_session(response, db, user, request, settings)
+    return UserRead.model_validate(user)
 
 
 @router.get("/me", response_model=UserRead)

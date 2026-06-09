@@ -31,6 +31,87 @@ def test_auth_me_returns_current_user_payload() -> None:
     assert response.json()["email"] == "dev@example.com"
 
 
+def _user(**overrides) -> SimpleNamespace:
+    base = dict(
+        id=uuid4(),
+        email="dev@example.com",
+        name="Dev",
+        avatar_url=None,
+        onboarded_at=None,
+        last_login_at=None,
+    )
+    base.update(overrides)
+    return SimpleNamespace(**base)
+
+
+def test_register_creates_account_and_sets_session_cookie(monkeypatch) -> None:
+    app = create_app()
+    monkeypatch.setattr(f"{AUTH_MODULE}.register_user_with_password", lambda *a, **k: _user())
+    monkeypatch.setattr(f"{AUTH_MODULE}.create_session_for_user", lambda *a, **k: "session-token")
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"email": "dev@example.com", "password": "supersecret", "name": "Dev"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["email"] == "dev@example.com"
+    assert "session_token=session-token" in response.headers["set-cookie"]
+
+
+def test_register_duplicate_email_returns_409(monkeypatch) -> None:
+    app = create_app()
+    monkeypatch.setattr(f"{AUTH_MODULE}.register_user_with_password", lambda *a, **k: None)
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"email": "taken@example.com", "password": "supersecret"},
+    )
+
+    assert response.status_code == 409
+
+
+def test_register_short_password_returns_422() -> None:
+    app = create_app()
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"email": "dev@example.com", "password": "short"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_login_valid_credentials_sets_session_cookie(monkeypatch) -> None:
+    app = create_app()
+    monkeypatch.setattr(f"{AUTH_MODULE}.authenticate_user", lambda *a, **k: _user())
+    monkeypatch.setattr(f"{AUTH_MODULE}.create_session_for_user", lambda *a, **k: "session-token")
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "dev@example.com", "password": "supersecret"},
+    )
+
+    assert response.status_code == 200
+    assert "session_token=session-token" in response.headers["set-cookie"]
+
+
+def test_login_invalid_credentials_returns_401(monkeypatch) -> None:
+    app = create_app()
+    monkeypatch.setattr(f"{AUTH_MODULE}.authenticate_user", lambda *a, **k: None)
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "dev@example.com", "password": "wrong"},
+    )
+
+    assert response.status_code == 401
+
+
 def test_start_google_oauth_redirects_and_sets_state_cookie(monkeypatch) -> None:
     app = create_app()
     monkeypatch.setattr("app.api.v1.endpoints.auth.generate_token", lambda: "state-token")

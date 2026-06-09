@@ -24,8 +24,15 @@ def create_user(
     email: str,
     name: str | None = None,
     avatar_url: str | None = None,
+    password_hash: str | None = None,
 ) -> User:
-    user = User(email=email, name=name, avatar_url=avatar_url, last_login_at=datetime.now(UTC))
+    user = User(
+        email=email,
+        name=name,
+        avatar_url=avatar_url,
+        password_hash=password_hash,
+        last_login_at=datetime.now(UTC),
+    )
     db.add(user)
     db.flush()
     return user
