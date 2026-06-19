@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -10,6 +10,7 @@ from app.core.deps import get_current_user
 from app.models.chat import Chat
 from app.models.user import User
 from app.schemas.chat import ChatCreate, ChatRead, ChatUpdate
+from app.schemas.message import MessageCreate, MessagePair, MessageRead
 from app.services.chat_service import (
     create_chat_for_user,
     delete_chat_for_user,
@@ -17,6 +18,7 @@ from app.services.chat_service import (
     list_chats_for_user,
     update_chat_for_user,
 )
+from app.services.message_service import list_messages_for_chat, post_message_to_chat
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -77,3 +79,31 @@ def delete_chat_endpoint(
     db: Session = Depends(get_db),
 ) -> None:
     delete_chat_for_user(db, chat)
+
+
+@router.get("/{chat_id}/messages", response_model=list[MessageRead])
+def list_messages_endpoint(
+    chat: Chat = Depends(get_owned_chat),
+    db: Session = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> list[MessageRead]:
+    messages = list_messages_for_chat(db, chat, limit=limit, offset=offset)
+    return [MessageRead.model_validate(message) for message in messages]
+
+
+@router.post(
+    "/{chat_id}/messages",
+    response_model=MessagePair,
+    status_code=status.HTTP_201_CREATED,
+)
+def post_message_endpoint(
+    payload: MessageCreate,
+    chat: Chat = Depends(get_owned_chat),
+    db: Session = Depends(get_db),
+) -> MessagePair:
+    user_message, assistant_message = post_message_to_chat(db, chat, payload)
+    return MessagePair(
+        user_message=MessageRead.model_validate(user_message),
+        assistant_message=MessageRead.model_validate(assistant_message),
+    )

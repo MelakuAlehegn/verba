@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -52,3 +53,11 @@ def update_chat(
 def delete_chat(db: Session, chat: Chat) -> None:
     db.delete(chat)
     db.flush()
+
+
+def touch_chat(db: Session, chat: Chat) -> Chat:
+    # Bump updated_at so the chat surfaces at the top of the recency-ordered
+    # session list after activity (e.g. a new message).
+    chat.updated_at = datetime.now(UTC)
+    db.flush()
+    return chat
