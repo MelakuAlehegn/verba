@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.sse import format_sse
 from app.models.chat import Chat
 from app.models.user import User
 from app.schemas.chat import ChatCreate, ChatRead, ChatUpdate
@@ -106,4 +109,31 @@ def post_message_endpoint(
     return MessagePair(
         user_message=MessageRead.model_validate(user_message),
         assistant_message=MessageRead.model_validate(assistant_message),
+    )
+
+
+@router.post("/{chat_id}/messages/stream")
+def stream_message_endpoint(
+    payload: MessageCreate,
+    chat: Chat = Depends(get_owned_chat),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    # Persist both turns up front, then capture the values we need into locals.
+    # Reading them now (not inside the generator) avoids relying on the DB
+    # session staying open — and on expire-on-commit reloads — mid-stream.
+    # The real LLM version will instead stream as it generates and persist last.
+    _, assistant_message = post_message_to_chat(db, chat, payload)
+    reply_text = assistant_message.content
+    chat_id = str(chat.id)
+    message_id = str(assistant_message.id)
+
+    def event_stream() -> Iterator[str]:
+        for token in reply_text.split():
+            yield format_sse({"delta": f"{token} "})
+        yield format_sse({"chat_id": chat_id, "message_id": message_id}, event="done")
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

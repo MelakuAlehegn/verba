@@ -72,3 +72,26 @@ def test_post_empty_message_returns_422() -> None:
     response = client.post(f"/api/v1/chats/{uuid4()}/messages", json={"content": ""})
 
     assert response.status_code == 422
+
+
+def test_stream_message_emits_token_and_done_events(monkeypatch) -> None:
+    app = create_app()
+    _override_auth_and_chat(app)
+    assistant = _message("assistant", "alpha beta")
+    monkeypatch.setattr(
+        f"{CHATS_MODULE}.post_message_to_chat",
+        lambda db, chat, payload: (_message("user", payload.content), assistant),
+    )
+
+    client = TestClient(app)
+    response = client.post(f"/api/v1/chats/{uuid4()}/messages/stream", json={"content": "hi"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    body = response.text
+    # Each word of the reply arrives as its own data frame...
+    assert 'data: {"delta": "alpha "}' in body
+    assert 'data: {"delta": "beta "}' in body
+    # ...followed by a terminal event carrying the persisted message id.
+    assert "event: done" in body
+    assert str(assistant.id) in body
