@@ -6,14 +6,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.document import Document
 from app.models.user import User
 from app.schemas.document import DocumentRead
 from app.services.document_service import (
-    ALLOWED_EXTENSIONS,
-    MAX_UPLOAD_BYTES,
     delete_document_for_user,
     get_document_for_user,
     list_documents_for_user,
@@ -54,18 +53,21 @@ def upload_document_endpoint(
     # Sync handler → FastAPI runs it in a threadpool, so the blocking storage
     # + DB calls don't stall the event loop. (Heavy ingestion still moves to a
     # worker later; this request just stores bytes + a row.)
+    settings = get_settings()
+    allowed_extensions = settings.upload_allowed_extension_set
+
     filename = os.path.basename(file.filename or "upload")
     extension = os.path.splitext(filename)[1].lower()
-    if extension not in ALLOWED_EXTENSIONS:
+    if extension not in allowed_extensions:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported file type '{extension}'. Allowed: {sorted(ALLOWED_EXTENSIONS)}",
+            detail=f"Unsupported file type '{extension}'. Allowed: {sorted(allowed_extensions)}",
         )
 
     data = file.file.read()
     if not data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file")
-    if len(data) > MAX_UPLOAD_BYTES:
+    if len(data) > settings.upload_max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File too large"
         )

@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     s3_secret_key: str = "minioadmin"
     s3_bucket: str = "documents"
     s3_region: str = "us-east-1"
+    upload_allowed_extensions: str = ".pdf,.txt,.md,.docx"
+    upload_max_bytes: int = 25 * 1024 * 1024  # 25 MB
     google_client_id: str = ""
     google_client_secret: str = ""
     session_secret: str = "change-me"
@@ -40,6 +42,14 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def upload_allowed_extension_set(self) -> set[str]:
+        return {
+            ext.strip().lower()
+            for ext in self.upload_allowed_extensions.split(",")
+            if ext.strip()
+        }
 
     @property
     def cookie_secure(self) -> bool:

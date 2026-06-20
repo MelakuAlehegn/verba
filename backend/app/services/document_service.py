@@ -16,10 +16,6 @@ from app.models.document import Document
 from app.models.user import User
 from app.storage.base import StorageClient
 
-# MVP supported types (§8). Extension-based — content sniffing comes later.
-ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md", ".docx"}
-MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # 25 MB
-
 
 def list_documents_for_user(db: Session, user: User) -> Sequence[Document]:
     return list_documents(db, user.id)
