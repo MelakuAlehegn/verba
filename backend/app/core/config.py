@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     s3_region: str = "us-east-1"
     upload_allowed_extensions: str = ".pdf,.txt,.md,.docx"
     upload_max_bytes: int = 25 * 1024 * 1024  # 25 MB
+    chunk_max_tokens: int = 512
+    chunk_overlap_tokens: int = 64
     google_client_id: str = ""
     google_client_secret: str = ""
     session_secret: str = "change-me"
