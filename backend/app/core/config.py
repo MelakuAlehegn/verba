@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     upload_max_bytes: int = 25 * 1024 * 1024  # 25 MB
     chunk_max_tokens: int = 512
     chunk_overlap_tokens: int = 64
+    google_api_key: str = ""
+    embedding_model: str = "gemini-embedding-001"
+    embedding_version: str = "v1"
+    embedding_dimension: int = 768
     google_client_id: str = ""
     google_client_secret: str = ""
     session_secret: str = "change-me"
