@@ -1,11 +1,27 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models.document_chunk import DocumentChunk
+
+
+def get_chunks_by_ids(
+    db: Session, chunk_ids: Sequence[UUID], user_id: UUID
+) -> Sequence[DocumentChunk]:
+    # Tenant-scoped: even though Qdrant already filtered by user_id, we filter
+    # again here so a chunk can never cross tenants (defense in depth).
+    if not chunk_ids:
+        return []
+    return db.scalars(
+        select(DocumentChunk).where(
+            DocumentChunk.id.in_(chunk_ids),
+            DocumentChunk.user_id == user_id,
+        )
+    ).all()
 
 
 def create_document_chunk(
