@@ -48,3 +48,14 @@ def create_message(
     db.add(message)
     db.flush()
     return message
+
+
+def get_message_by_id(db: Session, message_id: UUID) -> Message | None:
+    return db.get(Message, message_id)
+
+
+def set_message_content(db: Session, message: Message, *, content: str, status: str) -> Message:
+    message.content = content
+    message.status = status
+    db.flush()
+    return message

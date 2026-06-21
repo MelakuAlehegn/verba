@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import SessionLocal, get_db
 from app.core.deps import get_current_user
 from app.core.sse import format_sse
 from app.models.chat import Chat
@@ -21,7 +21,16 @@ from app.services.chat_service import (
     list_chats_for_user,
     update_chat_for_user,
 )
-from app.services.message_service import list_messages_for_chat, post_message_to_chat
+from app.services.message_service import (
+    finalize_assistant_message,
+    list_messages_for_chat,
+    post_message_to_chat,
+    start_message_turn,
+    stream_message_reply,
+)
+from app.services.rag.embedding import Embedder, get_embedder
+from app.services.rag.llm import LLMProvider, get_llm_provider
+from app.services.rag.vector_store import VectorStore, get_vector_store
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -104,8 +113,13 @@ def post_message_endpoint(
     payload: MessageCreate,
     chat: Chat = Depends(get_owned_chat),
     db: Session = Depends(get_db),
+    embedder: Embedder = Depends(get_embedder),
+    vector_store: VectorStore = Depends(get_vector_store),
+    llm: LLMProvider = Depends(get_llm_provider),
 ) -> MessagePair:
-    user_message, assistant_message = post_message_to_chat(db, chat, payload)
+    user_message, assistant_message = post_message_to_chat(
+        db, chat, payload, embedder=embedder, vector_store=vector_store, llm=llm
+    )
     return MessagePair(
         user_message=MessageRead.model_validate(user_message),
         assistant_message=MessageRead.model_validate(assistant_message),
@@ -117,20 +131,39 @@ def stream_message_endpoint(
     payload: MessageCreate,
     chat: Chat = Depends(get_owned_chat),
     db: Session = Depends(get_db),
+    embedder: Embedder = Depends(get_embedder),
+    vector_store: VectorStore = Depends(get_vector_store),
+    llm: LLMProvider = Depends(get_llm_provider),
 ) -> StreamingResponse:
-    # Persist both turns up front, then capture the values we need into locals.
-    # Reading them now (not inside the generator) avoids relying on the DB
-    # session staying open — and on expire-on-commit reloads — mid-stream.
-    # The real LLM version will instead stream as it generates and persist last.
-    _, assistant_message = post_message_to_chat(db, chat, payload)
-    reply_text = assistant_message.content
+    # Persist the user turn + an empty 'streaming' assistant row synchronously,
+    # then capture ids into locals for the generator.
+    _, assistant_message = start_message_turn(db, chat, payload.content)
+    user_id = chat.user_id
     chat_id = str(chat.id)
-    message_id = str(assistant_message.id)
+    assistant_id = assistant_message.id
+    query = payload.content
 
     def event_stream() -> Iterator[str]:
-        for token in reply_text.split():
-            yield format_sse({"delta": f"{token} "})
-        yield format_sse({"chat_id": chat_id, "message_id": message_id}, event="done")
+        # The generator owns its own DB session: it outlives the request's
+        # session and does live writes (token accumulation → final persist).
+        gen_db = SessionLocal()
+        try:
+            for token in stream_message_reply(
+                gen_db,
+                user_id=user_id,
+                query=query,
+                assistant_message_id=assistant_id,
+                embedder=embedder,
+                vector_store=vector_store,
+                llm=llm,
+            ):
+                yield format_sse({"delta": token})
+            yield format_sse({"chat_id": chat_id, "message_id": str(assistant_id)}, event="done")
+        except Exception:
+            finalize_assistant_message(gen_db, assistant_id, content="", status="failed")
+            yield format_sse({"message": "Generation failed"}, event="error")
+        finally:
+            gen_db.close()
 
     return StreamingResponse(
         event_stream(),
