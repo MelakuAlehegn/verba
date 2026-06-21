@@ -55,6 +55,8 @@ def test_upload_document_returns_queued(monkeypatch) -> None:
         f"{DOCS_MODULE}.upload_document_for_user",
         lambda db, user, storage, *, filename, content_type, data: _document(filename=filename),
     )
+    # Don't reach the Celery broker in tests.
+    monkeypatch.setattr(f"{DOCS_MODULE}.enqueue_document_ingestion", lambda *a, **k: None)
 
     client = TestClient(app)
     response = client.post(

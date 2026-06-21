@@ -11,6 +11,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+# Stamp on every chunk; bump when the chunking algorithm changes so stale
+# chunks can be detected and re-indexed. It tracks the code, not config.
+CHUNKING_VERSION = "v1"
+
 _PARAGRAPH_BREAK = re.compile(r"\n\s*\n")
 
 

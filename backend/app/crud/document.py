@@ -21,6 +21,37 @@ def get_document(db: Session, document_id: UUID, user_id: UUID) -> Document | No
     )
 
 
+def get_document_by_id(db: Session, document_id: UUID) -> Document | None:
+    # No tenant scope: the worker operates by document id, not on behalf of a user.
+    return db.get(Document, document_id)
+
+
+def mark_document_processing(db: Session, document: Document) -> Document:
+    document.status = "processing"
+    db.flush()
+    return document
+
+
+def mark_document_ready(db: Session, document: Document, *, chunk_count: int) -> Document:
+    document.status = "ready"
+    document.chunk_count = chunk_count
+    document.processed_at = datetime.now(UTC)
+    document.error_code = None
+    document.error_message = None
+    db.flush()
+    return document
+
+
+def mark_document_failed(
+    db: Session, document: Document, *, error_code: str, error_message: str
+) -> Document:
+    document.status = "failed"
+    document.error_code = error_code
+    document.error_message = error_message
+    db.flush()
+    return document
+
+
 def list_documents(db: Session, user_id: UUID) -> Sequence[Document]:
     return db.scalars(
         select(Document)

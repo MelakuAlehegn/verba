@@ -19,6 +19,7 @@ from app.services.document_service import (
     upload_document_for_user,
 )
 from app.storage import StorageClient, get_storage_client
+from app.workers.tasks import enqueue_document_ingestion
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -76,6 +77,8 @@ def upload_document_endpoint(
     document = upload_document_for_user(
         db, current_user, storage, filename=filename, content_type=content_type, data=data
     )
+    # Bytes are stored and the row is 'queued'; hand ingestion to the worker.
+    enqueue_document_ingestion(document.id)
     return DocumentRead.model_validate(document)
 
 
