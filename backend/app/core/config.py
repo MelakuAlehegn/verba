@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     chunk_max_tokens: int = 512
     chunk_overlap_tokens: int = 64
     retrieval_top_k: int = 8
+    generation_model: str = "gemini-2.5-flash"
     google_api_key: str = ""
     embedding_model: str = "gemini-embedding-001"
     embedding_version: str = "v1"
