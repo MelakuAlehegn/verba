@@ -148,7 +148,7 @@ def stream_message_endpoint(
         # session and does live writes (token accumulation → final persist).
         gen_db = SessionLocal()
         try:
-            for token in stream_message_reply(
+            replies = stream_message_reply(
                 gen_db,
                 user_id=user_id,
                 query=query,
@@ -156,9 +156,19 @@ def stream_message_endpoint(
                 embedder=embedder,
                 vector_store=vector_store,
                 llm=llm,
-            ):
-                yield format_sse({"delta": token})
-            yield format_sse({"chat_id": chat_id, "message_id": str(assistant_id)}, event="done")
+            )
+            # Drain tokens; the generator returns the citation summary on finish.
+            citations: list[dict[str, object]] = []
+            while True:
+                try:
+                    yield format_sse({"delta": next(replies)})
+                except StopIteration as finished:
+                    citations = finished.value or []
+                    break
+            yield format_sse(
+                {"chat_id": chat_id, "message_id": str(assistant_id), "citations": citations},
+                event="done",
+            )
         except Exception:
             finalize_assistant_message(gen_db, assistant_id, content="", status="failed")
             yield format_sse({"message": "Generation failed"}, event="error")

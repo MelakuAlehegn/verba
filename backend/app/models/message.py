@@ -12,6 +12,7 @@ from app.models.base import Base
 
 if TYPE_CHECKING:
     from app.models.chat import Chat
+    from app.models.message_citation import MessageCitation
 
 
 class Message(Base):
@@ -41,3 +42,8 @@ class Message(Base):
     )
 
     chat: Mapped[Chat] = relationship(back_populates="messages")
+    citations: Mapped[list[MessageCitation]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+        order_by="MessageCitation.rank",
+    )

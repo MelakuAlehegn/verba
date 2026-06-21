@@ -40,12 +40,44 @@ def test_post_message_generates_and_persists_both_turns(monkeypatch) -> None:
     db.commit.assert_called_once()
 
 
+def test_post_message_persists_citations_for_retrieved_chunks(monkeypatch) -> None:
+    db = Mock()
+    chat = SimpleNamespace(id=uuid4(), user_id=uuid4())
+    chunks = [
+        SimpleNamespace(document_id=uuid4(), chunk_id=uuid4(), content="first", score=0.9),
+        SimpleNamespace(document_id=uuid4(), chunk_id=uuid4(), content="second", score=0.5),
+    ]
+    citations = []
+
+    monkeypatch.setattr(
+        f"{MODULE}.create_message", lambda _db, **k: SimpleNamespace(id=uuid4(), **k)
+    )
+    monkeypatch.setattr(f"{MODULE}.touch_chat", lambda db, c: c)
+    monkeypatch.setattr(f"{MODULE}.retrieve_context", lambda *a, **k: chunks)
+    monkeypatch.setattr(
+        f"{MODULE}.create_message_citation", lambda _db, **k: citations.append(k)
+    )
+
+    post_message_to_chat(
+        db,
+        chat,
+        MessageCreate(content="q"),
+        embedder=Mock(),
+        vector_store=Mock(),
+        llm=_fake_llm(["answer"]),
+    )
+
+    assert [c["rank"] for c in citations] == [1, 2]
+    assert citations[0]["chunk_id"] == chunks[0].chunk_id
+    assert citations[0]["quote_preview"] == "first"
+
+
 def test_stream_reply_yields_tokens_then_persists(monkeypatch) -> None:
     db = Mock()
     monkeypatch.setattr(f"{MODULE}.retrieve_context", lambda *a, **k: [])
     finalized = {}
 
-    def fake_finalize(_db, message_id, *, content, status):
+    def fake_finalize(_db, message_id, *, content, status, chunks=None):
         finalized.update(message_id=message_id, content=content, status=status)
 
     monkeypatch.setattr(f"{MODULE}.finalize_assistant_message", fake_finalize)

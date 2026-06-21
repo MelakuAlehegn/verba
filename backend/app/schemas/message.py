@@ -10,6 +10,16 @@ class MessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=8000)
 
 
+class CitationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    document_id: UUID | None
+    chunk_id: UUID | None
+    rank: int
+    score: float | None
+    quote_preview: str | None
+
+
 class MessageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -21,6 +31,7 @@ class MessageRead(BaseModel):
     model: str | None
     token_usage: dict[str, object] | None
     created_at: datetime
+    citations: list[CitationRead] = []
 
 
 class MessagePair(BaseModel):

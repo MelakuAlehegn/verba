@@ -13,14 +13,17 @@ from app.crud.message import (
     list_messages,
     set_message_content,
 )
+from app.crud.message_citation import create_message_citation
 from app.models.chat import Chat
 from app.models.message import Message
 from app.schemas.message import MessageCreate
 from app.services.rag.embedding import Embedder
 from app.services.rag.generation import build_prompt
 from app.services.rag.llm import LLMProvider
-from app.services.rag.retrieval import retrieve_context
+from app.services.rag.retrieval import RetrievedChunk, retrieve_context
 from app.services.rag.vector_store import VectorStore
+
+_QUOTE_PREVIEW_CHARS = 200
 
 
 def list_messages_for_chat(
@@ -33,20 +36,16 @@ def list_messages_for_chat(
     return list_messages(db, chat.id, limit=limit, offset=offset)
 
 
-def _answer(
+def _retrieve_and_prompt(
     db: Session,
     *,
     user_id: UUID,
     query: str,
     embedder: Embedder,
     vector_store: VectorStore,
-    llm: LLMProvider,
-) -> Iterator[str]:
-    """Retrieve context for the query and stream the grounded answer.
-
-    document_ids=None searches across all the user's vectors — i.e. every
-    ingested ('ready') document. Per-chat scoping is a later slice.
-    """
+) -> tuple[list[RetrievedChunk], str]:
+    # document_ids=None → all of the user's ingested documents. Per-chat
+    # scoping is a later slice.
     settings = get_settings()
     chunks = retrieve_context(
         db,
@@ -57,7 +56,32 @@ def _answer(
         document_ids=None,
         limit=settings.retrieval_top_k,
     )
-    yield from llm.stream(build_prompt(query, chunks))
+    return chunks, build_prompt(query, chunks)
+
+
+def _persist_citations(db: Session, message_id: UUID, chunks: list[RetrievedChunk]) -> None:
+    for rank, chunk in enumerate(chunks, start=1):
+        create_message_citation(
+            db,
+            message_id=message_id,
+            document_id=chunk.document_id,
+            chunk_id=chunk.chunk_id,
+            rank=rank,
+            score=chunk.score,
+            quote_preview=chunk.content[:_QUOTE_PREVIEW_CHARS],
+        )
+
+
+def _citation_summaries(chunks: list[RetrievedChunk]) -> list[dict[str, object]]:
+    return [
+        {
+            "rank": rank,
+            "document_id": str(chunk.document_id),
+            "chunk_id": str(chunk.chunk_id),
+            "score": chunk.score,
+        }
+        for rank, chunk in enumerate(chunks, start=1)
+    ]
 
 
 def post_message_to_chat(
@@ -69,22 +93,20 @@ def post_message_to_chat(
     vector_store: VectorStore,
     llm: LLMProvider,
 ) -> tuple[Message, Message]:
-    """Non-streaming turn: persist the user message, generate the full answer,
-    persist the assistant message. Used by the JSON endpoint."""
+    """Non-streaming turn: persist user message, generate the full answer,
+    persist the assistant message + its citations. Used by the JSON endpoint."""
     settings = get_settings()
     user_message = create_message(
         db, chat_id=chat.id, user_id=chat.user_id, role="user", content=payload.content
     )
-    answer = "".join(
-        _answer(
-            db,
-            user_id=chat.user_id,
-            query=payload.content,
-            embedder=embedder,
-            vector_store=vector_store,
-            llm=llm,
-        )
+    chunks, prompt = _retrieve_and_prompt(
+        db,
+        user_id=chat.user_id,
+        query=payload.content,
+        embedder=embedder,
+        vector_store=vector_store,
     )
+    answer = "".join(llm.stream(prompt))
     assistant_message = create_message(
         db,
         chat_id=chat.id,
@@ -93,6 +115,7 @@ def post_message_to_chat(
         content=answer,
         model=settings.generation_model,
     )
+    _persist_citations(db, assistant_message.id, chunks)
     touch_chat(db, chat)
     db.commit()
     db.refresh(user_message)
@@ -101,8 +124,8 @@ def post_message_to_chat(
 
 
 def start_message_turn(db: Session, chat: Chat, content: str) -> tuple[Message, Message]:
-    """Persist the user message and an empty assistant message in 'streaming'
-    state, returning both so the SSE endpoint can fill the assistant live."""
+    """Persist the user message and an empty 'streaming' assistant message so
+    the SSE endpoint can fill it live."""
     settings = get_settings()
     user_message = create_message(
         db, chat_id=chat.id, user_id=chat.user_id, role="user", content=content
@@ -133,26 +156,34 @@ def stream_message_reply(
     vector_store: VectorStore,
     llm: LLMProvider,
 ) -> Iterator[str]:
-    """Yield answer tokens (for SSE), accumulate them, and persist the finished
-    assistant message as 'complete' once the stream ends."""
+    """Yield answer tokens (for SSE), persist the finished message + citations,
+    and return the citation summary as the generator's return value (so the
+    endpoint can put it in the terminal 'done' event)."""
+    chunks, prompt = _retrieve_and_prompt(
+        db, user_id=user_id, query=query, embedder=embedder, vector_store=vector_store
+    )
     parts: list[str] = []
-    for token in _answer(
-        db,
-        user_id=user_id,
-        query=query,
-        embedder=embedder,
-        vector_store=vector_store,
-        llm=llm,
-    ):
+    for token in llm.stream(prompt):
         parts.append(token)
         yield token
-    finalize_assistant_message(db, assistant_message_id, content="".join(parts), status="complete")
+    finalize_assistant_message(
+        db, assistant_message_id, content="".join(parts), status="complete", chunks=chunks
+    )
+    return _citation_summaries(chunks)
 
 
 def finalize_assistant_message(
-    db: Session, message_id: UUID, *, content: str, status: str
+    db: Session,
+    message_id: UUID,
+    *,
+    content: str,
+    status: str,
+    chunks: list[RetrievedChunk] | None = None,
 ) -> None:
     message = get_message_by_id(db, message_id)
-    if message is not None:
-        set_message_content(db, message, content=content, status=status)
-        db.commit()
+    if message is None:
+        return
+    set_message_content(db, message, content=content, status=status)
+    if chunks:
+        _persist_citations(db, message_id, chunks)
+    db.commit()

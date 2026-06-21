@@ -5,6 +5,7 @@ from app.models import (
     Document,
     DocumentChunk,
     Message,
+    MessageCitation,
     OAuthAccount,
     User,
     UserSession,
@@ -23,7 +24,8 @@ def test_auth_models_register_expected_tables() -> None:
 
 
 def test_chat_models_register_expected_tables() -> None:
-    assert {Chat.__tablename__, Message.__tablename__}.issubset(Base.metadata.tables.keys())
+    expected = {Chat.__tablename__, Message.__tablename__, MessageCitation.__tablename__}
+    assert expected.issubset(Base.metadata.tables.keys())
 
 
 def test_document_models_register_expected_tables() -> None:
