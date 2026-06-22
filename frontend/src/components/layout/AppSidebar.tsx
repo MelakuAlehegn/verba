@@ -2,6 +2,7 @@ import { Bell, FileText, MessageSquareText, Plus, Quote, Settings } from "lucide
 import type { LucideIcon } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { ChatList } from "@/features/chats/components/ChatList";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { Button } from "@/components/ui/button";
@@ -98,10 +99,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Your chats</SidebarGroupLabel>
           <SidebarGroupContent>
-            {/* F5 replaces this with the live, tenant-scoped chat list. */}
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">
-              No chats yet. Start by asking a question.
-            </p>
+            <ChatList />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
