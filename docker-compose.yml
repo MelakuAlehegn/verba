@@ -1,9 +1,16 @@
 # Self-contained local stack: one command boots Postgres, Redis, Qdrant, MinIO,
-# the API, and the Celery worker. Independent of any dev containers you run by
-# hand — infra ports are NOT published to the host (to avoid clashing with
-# those), only the API on :8000.
+# the API, and the Celery worker.
 #
 #   docker compose up --build
+#
+# Host ports are OFFSET from the hand-run dev containers (5432/6333/6379/9000-1)
+# so both can run at once. From the host, inspect the compose stack at:
+#   API        http://localhost:8000
+#   Postgres   localhost:5442            (in-container: postgres:5432)
+#   Qdrant UI  http://localhost:6343/dashboard
+#   Redis      localhost:6380
+#   MinIO API  http://localhost:9002   console http://localhost:9011
+# Containers talk to each other by service name on the internal network.
 #
 # Secrets (GOOGLE_API_KEY, OAuth, SESSION_SECRET) come from backend/.env; the
 # service-name connection URLs below override the localhost ones in that file.
@@ -16,6 +23,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: document_qa_rag
+    ports:
+      - "5442:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -26,6 +35,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    ports:
+      - "6380:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -34,6 +45,9 @@ services:
 
   qdrant:
     image: qdrant/qdrant:latest
+    ports:
+      - "6343:6333"
+      - "6344:6334"
     volumes:
       - qdrantdata:/qdrant/storage
 
@@ -43,6 +57,9 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9002:9000"
+      - "9011:9001"
     volumes:
       - miniodata:/data
 
