@@ -1,16 +1,19 @@
 import { Outlet } from "react-router-dom";
-import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 export default function AppLayout() {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <header className="flex items-center justify-between border-b px-6 py-4">
-        <span className="text-sm font-semibold tracking-tight">Verba</span>
-        <ThemeToggle />
-      </header>
-      <main className="flex-1 p-6">
-        <Outlet />
-      </main>
-    </div>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/60 px-4">
+          <SidebarTrigger className="text-muted-foreground" />
+        </header>
+        <div className="flex flex-1 flex-col overflow-auto">
+          <Outlet />
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
