@@ -1,15 +1,20 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { getPostAuthPath } from "@/features/auth/utils";
 
 export function RedirectIfAuthed() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+        Loading…
+      </div>
+    );
   }
 
-  if (isAuthenticated) {
-    return <Navigate to="/app" replace />;
+  if (isAuthenticated && user) {
+    return <Navigate to={getPostAuthPath(user)} replace />;
   }
 
   return <Outlet />;

@@ -96,8 +96,11 @@ def handle_google_oauth_callback(
         ip_address=request.client.host if request.client is not None else None,
     )
 
+    # Hand off to the frontend's post-auth handler, which hydrates the user
+    # and routes to onboarding (new user) or the workspace. Redirecting
+    # straight to /app would skip that onboarding decision.
     redirect_response = RedirectResponse(
-        url=f"{settings.frontend_url}/app",
+        url=f"{settings.frontend_url}/auth/callback",
         status_code=status.HTTP_303_SEE_OTHER,
     )
     set_session_cookie(redirect_response, session_token, settings)

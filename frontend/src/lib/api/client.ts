@@ -13,12 +13,14 @@ export class ApiError extends Error {
 
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
+  /** When true, a 401 will not invoke the global unauthorized handler. */
+  suppressUnauthorized?: boolean;
 };
 
 let onUnauthorized: (() => void) | null = null;
 
 /** Register a handler invoked on any 401 response (wired in F2 auth). */
-export function setUnauthorizedHandler(handler: () => void) {
+export function setUnauthorizedHandler(handler: (() => void) | null) {
   onUnauthorized = handler;
 }
 
@@ -37,7 +39,7 @@ function extractErrorMessage(body: unknown, fallback: string): string {
 }
 
 export async function apiClient<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { body, headers, ...rest } = options;
+  const { body, headers, suppressUnauthorized, ...rest } = options;
 
   const response = await fetch(resolveUrl(path), {
     ...rest,
@@ -50,7 +52,9 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
   });
 
   if (response.status === 401) {
-    onUnauthorized?.();
+    if (!suppressUnauthorized) {
+      onUnauthorized?.();
+    }
     throw new ApiError(401, "Unauthorized");
   }
 
