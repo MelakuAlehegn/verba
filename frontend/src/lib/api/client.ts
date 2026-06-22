@@ -41,14 +41,19 @@ function extractErrorMessage(body: unknown, fallback: string): string {
 export async function apiClient<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, headers, suppressUnauthorized, ...rest } = options;
 
+  // FormData (file uploads) must be sent raw so the browser sets the multipart
+  // boundary; only JSON bodies get encoded + a Content-Type.
+  const hasBody = body !== undefined;
+  const isFormData = body instanceof FormData;
+
   const response = await fetch(resolveUrl(path), {
     ...rest,
     credentials: "include",
     headers: {
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(hasBody && !isFormData ? { "Content-Type": "application/json" } : {}),
       ...headers,
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: hasBody ? (isFormData ? (body as FormData) : JSON.stringify(body)) : undefined,
   });
 
   if (response.status === 401) {

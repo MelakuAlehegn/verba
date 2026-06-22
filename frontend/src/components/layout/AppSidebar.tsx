@@ -108,15 +108,7 @@ export function AppSidebar() {
 
       <SidebarFooter className="gap-2">
         <div className="flex items-center justify-between px-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-2 text-muted-foreground"
-            onClick={() => toast("Thanks — feedback is coming soon.")}
-          >
-            <MessageSquareText className="h-4 w-4" />
-            Feedback
-          </Button>
+          <span className="text-xs text-muted-foreground">Theme</span>
           <ThemeToggle />
         </div>
         <UserMenu />
