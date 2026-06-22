@@ -150,5 +150,5 @@ def test_google_callback_sets_session_cookie_and_redirects(monkeypatch) -> None:
     )
 
     assert response.status_code == 303
-    assert response.headers["location"].endswith("/app")
+    assert response.headers["location"].endswith("/auth/callback")
     assert "session_token=session-token" in response.headers["set-cookie"]
