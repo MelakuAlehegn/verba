@@ -42,6 +42,18 @@ export interface Document {
   updated_at: string;
 }
 
+export interface Settings {
+  default_provider: string;
+  theme: string;
+  retrieval_settings: Record<string, unknown>;
+  preferences: Record<string, unknown>;
+}
+
+export interface SettingsUpdate {
+  default_provider?: string;
+  theme?: string;
+}
+
 export interface Chat {
   id: string;
   title: string;
