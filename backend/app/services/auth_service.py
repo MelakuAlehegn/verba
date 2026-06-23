@@ -8,6 +8,7 @@ from app.crud.user import (
     create_default_user_settings,
     create_user,
     get_user_by_email,
+    mark_user_onboarded,
     touch_user_last_login,
     update_user_profile,
 )
@@ -67,6 +68,23 @@ def register_user_with_password(
 
     user = create_user(db, email=email, name=name, password_hash=hash_password(password))
     create_default_user_settings(db, user.id)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def update_current_user(
+    db: Session,
+    user: User,
+    *,
+    name: str | None = None,
+    avatar_url: str | None = None,
+    onboarded: bool | None = None,
+) -> User:
+    if name is not None or avatar_url is not None:
+        update_user_profile(db, user, name=name, avatar_url=avatar_url)
+    if onboarded:
+        mark_user_onboarded(db, user)
     db.commit()
     db.refresh(user)
     return user

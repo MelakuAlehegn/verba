@@ -29,6 +29,16 @@ export async function getMe(): Promise<User | null> {
   }
 }
 
+export interface UserUpdate {
+  name?: string | null;
+  avatar_url?: string | null;
+  onboarded?: boolean;
+}
+
+export async function updateMe(data: UserUpdate): Promise<User> {
+  return apiClient<User>("/auth/me", { method: "PATCH", body: data });
+}
+
 export async function logout(): Promise<void> {
   await apiClient<void>("/auth/logout", { method: "POST", suppressUnauthorized: true });
 }
