@@ -7,10 +7,17 @@ interface ChatComposerProps {
   disabled?: boolean;
   autoFocus?: boolean;
   placeholder?: string;
+  initialValue?: string;
 }
 
-export function ChatComposer({ onSend, disabled, autoFocus, placeholder }: ChatComposerProps) {
-  const [value, setValue] = useState("");
+export function ChatComposer({
+  onSend,
+  disabled,
+  autoFocus,
+  placeholder,
+  initialValue,
+}: ChatComposerProps) {
+  const [value, setValue] = useState(initialValue ?? "");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-grow up to a cap.

@@ -1,10 +1,12 @@
 import { FileText } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ChatComposer } from "@/features/chats/components/ChatComposer";
 import { useCreateChat } from "@/features/chats/hooks";
 import { useDocuments } from "@/features/documents/hooks";
+import { LANDING_INTENT_KEY } from "@/pages/landing/LandingPage";
 
 const EXAMPLES = [
   "Summarize my documents",
@@ -18,6 +20,14 @@ export default function AppIndexPage() {
   const createChat = useCreateChat();
   const { data: documents } = useDocuments();
   const hasReadyDocs = (documents ?? []).some((doc) => doc.status === "ready");
+
+  // A question typed on the landing page is handed off here, prefilled so the
+  // user can review and send (read once, then cleared).
+  const [intent] = useState(() => {
+    const stored = sessionStorage.getItem(LANDING_INTENT_KEY);
+    if (stored) sessionStorage.removeItem(LANDING_INTENT_KEY);
+    return stored ?? "";
+  });
 
   const startChat = async (content: string) => {
     const title = content.length > 48 ? `${content.slice(0, 48)}…` : content;
@@ -68,7 +78,12 @@ export default function AppIndexPage() {
       </div>
 
       <div className="mt-6 w-full">
-        <ChatComposer onSend={startChat} disabled={createChat.isPending} autoFocus />
+        <ChatComposer
+          onSend={startChat}
+          disabled={createChat.isPending}
+          autoFocus
+          initialValue={intent}
+        />
       </div>
     </div>
   );
