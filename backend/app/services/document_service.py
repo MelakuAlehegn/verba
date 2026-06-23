@@ -12,8 +12,10 @@ from app.crud.document import (
     list_documents,
     soft_delete_document,
 )
+from app.crud.document_chunk import delete_chunks_for_document
 from app.models.document import Document
 from app.models.user import User
+from app.services.rag.vector_store import VectorStore
 from app.storage.base import StorageClient
 
 
@@ -59,7 +61,17 @@ def upload_document_for_user(
     return document
 
 
-def delete_document_for_user(db: Session, document: Document, storage: StorageClient) -> None:
+def delete_document_for_user(
+    db: Session,
+    document: Document,
+    storage: StorageClient,
+    vector_store: VectorStore,
+) -> None:
+    # Remove the file, its vectors, and its chunks (cascades chunk_embeddings) so
+    # a deleted document can never resurface in retrieval. The row is soft-deleted
+    # (kept as a tombstone); message_citations to its chunks become "unavailable".
     storage.delete_object(document.storage_key)
+    vector_store.delete_document(document.id)
+    delete_chunks_for_document(db, document.id)
     soft_delete_document(db, document)
     db.commit()

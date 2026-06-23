@@ -1,6 +1,32 @@
+import { Check, Copy } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { CitationChips } from "@/features/chats/components/CitationChips";
 import { Markdown } from "@/features/chats/components/Markdown";
 import { cn } from "@/lib/utils";
 import type { Message } from "@/lib/api/types";
+
+function CopyButton({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(content);
+    setCopied(true);
+    toast("Copied to clipboard");
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+    >
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
 
 export function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === "user";
@@ -34,7 +60,14 @@ export function MessageBubble({ message }: { message: Message }) {
             <Markdown content={message.content} />
             {isStreaming ? (
               <span className="ml-0.5 inline-block h-4 w-1.5 translate-y-0.5 animate-pulse rounded-sm bg-primary align-middle" />
-            ) : null}
+            ) : (
+              <>
+                <CitationChips content={message.content} citations={message.citations} />
+                <div className="mt-2 flex">
+                  <CopyButton content={message.content} />
+                </div>
+              </>
+            )}
           </>
         ) : (
           <span className="inline-flex gap-1 py-1">

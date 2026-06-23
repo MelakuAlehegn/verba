@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app.api.v1.endpoints.documents import get_owned_document
 from app.core.deps import get_current_user
 from app.main import create_app
+from app.services.rag.vector_store import get_vector_store
 from app.storage import get_storage_client
 
 DOCS_MODULE = "app.api.v1.endpoints.documents"
@@ -32,8 +33,9 @@ def _document(**overrides) -> SimpleNamespace:
 def _app_with_overrides() -> object:
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=uuid4())
-    # Never touch real MinIO in tests.
+    # Never touch real MinIO / Qdrant in tests.
     app.dependency_overrides[get_storage_client] = lambda: MagicMock()
+    app.dependency_overrides[get_vector_store] = lambda: MagicMock()
     return app
 
 
