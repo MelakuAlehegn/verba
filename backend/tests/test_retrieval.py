@@ -56,6 +56,47 @@ def test_retrieve_skips_chunks_missing_from_postgres(monkeypatch) -> None:
     assert [r.chunk_id for r in results] == [present]  # drifted vector skipped
 
 
+def test_retrieve_drops_matches_below_threshold(monkeypatch) -> None:
+    strong, weak = uuid4(), uuid4()
+    vector_store = Mock()
+    vector_store.search.return_value = [
+        VectorMatch(chunk_id=strong, score=0.82),
+        VectorMatch(chunk_id=weak, score=0.31),
+    ]
+    monkeypatch.setattr(
+        f"{MODULE}.get_chunks_by_ids",
+        lambda db, ids, uid: [_row(cid, "text") for cid in ids],
+    )
+
+    results = retrieve_context(
+        Mock(),
+        user_id=uuid4(),
+        query="q",
+        embedder=_embedder(),
+        vector_store=vector_store,
+        min_score=0.5,
+    )
+
+    assert [r.chunk_id for r in results] == [strong]  # weak match dropped
+
+
+def test_retrieve_returns_empty_when_all_below_threshold(monkeypatch) -> None:
+    vector_store = Mock()
+    vector_store.search.return_value = [VectorMatch(chunk_id=uuid4(), score=0.2)]
+    monkeypatch.setattr(f"{MODULE}.get_chunks_by_ids", lambda db, ids, uid: [])
+
+    results = retrieve_context(
+        Mock(),
+        user_id=uuid4(),
+        query="off-topic",
+        embedder=_embedder(),
+        vector_store=vector_store,
+        min_score=0.5,
+    )
+
+    assert results == []  # off-topic → no context → model will say "I don't know"
+
+
 def test_retrieve_returns_empty_when_no_matches() -> None:
     vector_store = Mock()
     vector_store.search.return_value = []

@@ -9,7 +9,7 @@ MODULE = "app.services.message_service"
 
 
 def _fake_llm(tokens):
-    return SimpleNamespace(stream=lambda prompt: iter(tokens))
+    return SimpleNamespace(stream=lambda prompt, system=None: iter(tokens))
 
 
 def test_post_message_generates_and_persists_both_turns(monkeypatch) -> None:

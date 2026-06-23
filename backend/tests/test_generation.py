@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
 
-from app.services.rag.generation import build_prompt
+from app.services.rag.generation import SYSTEM_INSTRUCTION, build_prompt
 from app.services.rag.llm import GeminiLLM
 
 
@@ -18,7 +18,12 @@ def test_build_prompt_includes_context_and_question() -> None:
     assert "Total tax owed: $4,210" in prompt
     assert "[Source 1]" in prompt
     assert "How much tax?" in prompt
-    assert "ONLY the context" in prompt  # grounding instruction present
+
+
+def test_system_instruction_enforces_grounding() -> None:
+    assert "ONLY the provided context" in SYSTEM_INSTRUCTION
+    assert "never use prior or general knowledge" in SYSTEM_INSTRUCTION.lower()
+    assert "couldn't find anything" in SYSTEM_INSTRUCTION  # explicit out-of-scope reply
 
 
 def test_build_prompt_handles_no_context() -> None:

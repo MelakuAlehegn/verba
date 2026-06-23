@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -35,7 +36,11 @@ def create_message(
     status: str = "complete",
     model: str | None = None,
     token_usage: dict[str, object] | None = None,
+    created_at: datetime | None = None,
 ) -> Message:
+    # created_at defaults to the DB server_default (func.now()), but callers can
+    # set it explicitly to keep user/assistant order deterministic — both rows
+    # of a turn otherwise share the same transaction timestamp.
     message = Message(
         chat_id=chat_id,
         user_id=user_id,
@@ -44,6 +49,7 @@ def create_message(
         status=status,
         model=model,
         token_usage=token_usage,
+        **({"created_at": created_at} if created_at is not None else {}),
     )
     db.add(message)
     db.flush()

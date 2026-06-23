@@ -12,6 +12,7 @@ from functools import lru_cache
 from typing import Protocol
 
 from google import genai
+from google.genai import types
 
 from app.core.config import Settings, get_settings
 
@@ -19,7 +20,7 @@ from app.core.config import Settings, get_settings
 class LLMProvider(Protocol):
     model: str
 
-    def stream(self, prompt: str) -> Iterator[str]: ...
+    def stream(self, prompt: str, *, system: str | None = None) -> Iterator[str]: ...
 
 
 class GeminiLLM:
@@ -27,10 +28,12 @@ class GeminiLLM:
         self.model = settings.generation_model
         self._client = genai.Client(api_key=settings.google_api_key)
 
-    def stream(self, prompt: str) -> Iterator[str]:
+    def stream(self, prompt: str, *, system: str | None = None) -> Iterator[str]:
+        config = types.GenerateContentConfig(system_instruction=system) if system else None
         responses = self._client.models.generate_content_stream(
             model=self.model,
             contents=prompt,
+            config=config,
         )
         for chunk in responses:
             # Some streamed chunks carry no text (e.g. metadata-only) — skip them.
