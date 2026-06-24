@@ -18,6 +18,7 @@ from app.services.document_service import (
     list_documents_for_user,
     upload_document_for_user,
 )
+from app.services.rag.vector_store import VectorStore, get_vector_store
 from app.storage import StorageClient, get_storage_client
 from app.workers.tasks import enqueue_document_ingestion
 
@@ -92,5 +93,6 @@ def delete_document_endpoint(
     document: Document = Depends(get_owned_document),
     db: Session = Depends(get_db),
     storage: StorageClient = Depends(get_storage_client),
+    vector_store: VectorStore = Depends(get_vector_store),
 ) -> None:
-    delete_document_for_user(db, document, storage)
+    delete_document_for_user(db, document, storage, vector_store)

@@ -1,10 +1,13 @@
 import { FileText } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BrandOrb } from "@/features/chats/components/BrandOrb";
 import { ChatComposer } from "@/features/chats/components/ChatComposer";
 import { useCreateChat } from "@/features/chats/hooks";
 import { useDocuments } from "@/features/documents/hooks";
+import { LANDING_INTENT_KEY } from "@/pages/landing/LandingPage";
 
 const EXAMPLES = [
   "Summarize my documents",
@@ -19,6 +22,14 @@ export default function AppIndexPage() {
   const { data: documents } = useDocuments();
   const hasReadyDocs = (documents ?? []).some((doc) => doc.status === "ready");
 
+  // A question typed on the landing page is handed off here, prefilled so the
+  // user can review and send (read once, then cleared).
+  const [intent] = useState(() => {
+    const stored = sessionStorage.getItem(LANDING_INTENT_KEY);
+    if (stored) sessionStorage.removeItem(LANDING_INTENT_KEY);
+    return stored ?? "";
+  });
+
   const startChat = async (content: string) => {
     const title = content.length > 48 ? `${content.slice(0, 48)}…` : content;
     try {
@@ -32,6 +43,9 @@ export default function AppIndexPage() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center">
       <div className="w-full max-w-2xl px-4 text-center">
+        <div className="mb-8 flex justify-center">
+          <BrandOrb />
+        </div>
         <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
           Ask anything about your documents.
         </h1>
@@ -68,7 +82,12 @@ export default function AppIndexPage() {
       </div>
 
       <div className="mt-6 w-full">
-        <ChatComposer onSend={startChat} disabled={createChat.isPending} autoFocus />
+        <ChatComposer
+          onSend={startChat}
+          disabled={createChat.isPending}
+          autoFocus
+          initialValue={intent}
+        />
       </div>
     </div>
   );

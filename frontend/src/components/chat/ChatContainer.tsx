@@ -139,7 +139,7 @@ export const ChatContainer = () => {
               )}
             </Button>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-primary">
+              <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center shadow-primary">
                 <Bot className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
@@ -159,7 +159,7 @@ export const ChatContainer = () => {
           <div className="max-w-3xl mx-auto space-y-6">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full py-20 animate-fade-in">
-                <div className="w-20 h-20 rounded-2xl gradient-primary flex items-center justify-center shadow-primary mb-6">
+                <div className="w-20 h-20 rounded-xl gradient-primary flex items-center justify-center shadow-primary mb-6">
                   <Bot className="w-10 h-10 text-primary-foreground" />
                 </div>
                 <h2 className="text-2xl font-semibold text-foreground mb-2">

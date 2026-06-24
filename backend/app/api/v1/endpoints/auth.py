@@ -10,10 +10,11 @@ from app.core.deps import get_current_user, get_optional_session_token
 from app.core.security import OAUTH_STATE_COOKIE_NAME, SESSION_COOKIE_NAME, generate_token
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest
-from app.schemas.user import UserRead
+from app.schemas.user import UserRead, UserUpdate
 from app.services.auth_service import (
     authenticate_user,
     register_user_with_password,
+    update_current_user,
     upsert_user_from_oauth_profile,
 )
 from app.services.oauth_service import (
@@ -152,6 +153,22 @@ def login_with_password(
 @router.get("/me", response_model=UserRead)
 def read_current_user(current_user: User = Depends(get_current_user)) -> UserRead:
     return UserRead.model_validate(current_user)
+
+
+@router.patch("/me", response_model=UserRead)
+def update_current_user_endpoint(
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UserRead:
+    user = update_current_user(
+        db,
+        current_user,
+        name=payload.name,
+        avatar_url=payload.avatar_url,
+        onboarded=payload.onboarded,
+    )
+    return UserRead.model_validate(user)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

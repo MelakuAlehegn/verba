@@ -15,12 +15,35 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
     <div className="grid min-h-screen lg:grid-cols-2">
       <AuthBrandingPanel className="hidden lg:flex" />
 
-      <div className="relative flex min-h-screen flex-col bg-background">
-        <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
+      <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
+        {/* Backdrop matching the landing page's color blend. */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          aria-hidden
+          style={{
+            backgroundImage: `
+              linear-gradient(to right, hsl(var(--muted-foreground) / 0.09) 1px, transparent 1px),
+              linear-gradient(to bottom, hsl(var(--muted-foreground) / 0.09) 1px, transparent 1px)
+            `,
+            backgroundSize: "44px 44px",
+            maskImage: "radial-gradient(ellipse 75% 60% at 50% 42%, black 0%, transparent 74%)",
+            WebkitMaskImage: "radial-gradient(ellipse 75% 60% at 50% 42%, black 0%, transparent 74%)",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-primary/[0.07] via-transparent to-transparent dark:from-primary/10"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute left-1/2 top-[38%] h-72 w-[34rem] max-w-[90vw] -translate-x-1/2 rounded-full bg-primary/20 blur-[120px] dark:bg-primary/25"
+          aria-hidden
+        />
+
+        <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
           <ThemeToggle />
         </div>
 
-        <div className="flex flex-1 flex-col justify-center px-6 py-16 sm:px-10 lg:px-16">
+        <div className="relative z-10 flex flex-1 flex-col justify-center px-6 py-16 sm:px-10 lg:px-16">
           <div className="mx-auto w-full max-w-sm animate-fade-in">
             <div className="mb-8 lg:hidden">
               <Link to="/" className="text-lg font-semibold tracking-tight text-foreground">

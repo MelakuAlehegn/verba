@@ -37,13 +37,21 @@ def test_upload_stores_bytes_and_creates_queued_row(monkeypatch) -> None:
     db.commit.assert_called_once()
 
 
-def test_delete_removes_object_then_soft_deletes(monkeypatch) -> None:
+def test_delete_removes_file_vectors_chunks_then_soft_deletes(monkeypatch) -> None:
     db = Mock()
     storage = Mock()
-    document = SimpleNamespace(storage_key="users/u/documents/d/taxes.pdf")
+    vector_store = Mock()
+    document = SimpleNamespace(id=uuid4(), storage_key="users/u/documents/d/taxes.pdf")
+    deleted_chunks_for = []
     monkeypatch.setattr(f"{DOC_SERVICE_MODULE}.soft_delete_document", lambda *a, **k: document)
+    monkeypatch.setattr(
+        f"{DOC_SERVICE_MODULE}.delete_chunks_for_document",
+        lambda _db, doc_id: deleted_chunks_for.append(doc_id),
+    )
 
-    delete_document_for_user(db, document, storage)
+    delete_document_for_user(db, document, storage, vector_store)
 
     storage.delete_object.assert_called_once_with("users/u/documents/d/taxes.pdf")
+    vector_store.delete_document.assert_called_once_with(document.id)
+    assert deleted_chunks_for == [document.id]
     db.commit.assert_called_once()

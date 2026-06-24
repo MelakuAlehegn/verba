@@ -33,7 +33,7 @@ export function GoogleAuthButton({ label = "Continue with Google" }: GoogleAuthB
     <Button
       type="button"
       variant="outline"
-      className="h-11 w-full rounded-xl border-border bg-background text-foreground shadow-sm hover:bg-muted/50"
+      className="h-11 w-full rounded-lg border-border bg-card text-foreground shadow-sm hover:bg-muted hover:text-foreground"
       onClick={() => {
         window.location.href = getGoogleAuthUrl();
       }}

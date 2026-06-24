@@ -53,6 +53,13 @@ def update_user_profile(
     return user
 
 
+def mark_user_onboarded(db: Session, user: User) -> User:
+    if user.onboarded_at is None:
+        user.onboarded_at = datetime.now(UTC)
+        db.flush()
+    return user
+
+
 def touch_user_last_login(db: Session, user: User) -> User:
     user.last_login_at = datetime.now(UTC)
     db.flush()

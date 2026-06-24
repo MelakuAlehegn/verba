@@ -17,7 +17,19 @@ function initialsFrom(name: string | null, email: string): string {
   return (letters.join("") || email[0]).toUpperCase();
 }
 
-export function UserMenu() {
+function UserAvatar({ name, email, avatarUrl }: { name: string | null; email: string; avatarUrl: string | null }) {
+  const displayName = name?.trim() || email.split("@")[0];
+  return (
+    <Avatar className="h-8 w-8 rounded-lg">
+      {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
+      <AvatarFallback className="rounded-lg bg-primary/10 text-xs font-semibold text-primary">
+        {initialsFrom(name, email)}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
+export function UserMenu({ variant = "card" }: { variant?: "card" | "avatar" }) {
   const { user, logout } = useAuth();
   if (!user) return null;
 
@@ -25,20 +37,29 @@ export function UserMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/40 p-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
-        <Avatar className="h-8 w-8 rounded-lg">
-          {user.avatar_url ? <AvatarImage src={user.avatar_url} alt={displayName} /> : null}
-          <AvatarFallback className="rounded-lg bg-primary/10 text-xs font-semibold text-primary">
-            {initialsFrom(user.name, user.email)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="grid min-w-0 flex-1 leading-tight">
-          <span className="truncate text-sm font-medium">{displayName}</span>
-          <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-        </div>
-        <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <DropdownMenuTrigger
+        className={
+          variant === "avatar"
+            ? "rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            : "flex w-full items-center gap-3 rounded-lg border border-sidebar-border/70 bg-sidebar-accent/40 p-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+        }
+      >
+        <UserAvatar name={user.name} email={user.email} avatarUrl={user.avatar_url} />
+        {variant === "card" ? (
+          <>
+            <div className="grid min-w-0 flex-1 leading-tight">
+              <span className="truncate text-sm font-medium">{displayName}</span>
+              <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+            </div>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </>
+        ) : null}
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="start" className="w-[--radix-dropdown-menu-trigger-width] min-w-56">
+      <DropdownMenuContent
+        side={variant === "avatar" ? "bottom" : "top"}
+        align={variant === "avatar" ? "end" : "start"}
+        className="min-w-56"
+      >
         <DropdownMenuLabel className="font-normal">
           <div className="grid leading-tight">
             <span className="truncate text-sm font-medium">{displayName}</span>

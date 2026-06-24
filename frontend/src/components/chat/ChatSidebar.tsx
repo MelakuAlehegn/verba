@@ -56,7 +56,7 @@ export const ChatSidebar = ({
     >
       {/* Header */}
       <div className="p-5">
-        <div className="gradient-primary rounded-xl p-4 text-center shadow-primary">
+        <div className="gradient-primary rounded-lg p-4 text-center shadow-primary">
           <div className="flex items-center justify-center gap-2 mb-1">
             <Settings className="w-5 h-5 text-primary-foreground" />
             <h3 className="font-semibold text-primary-foreground">Settings</h3>

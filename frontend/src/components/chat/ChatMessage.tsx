@@ -32,7 +32,7 @@ export const ChatMessage = ({ role, content, isStreaming }: ChatMessageProps) =>
       {/* Message Bubble */}
       <div
         className={cn(
-          "max-w-[75%] px-4 py-3 rounded-2xl shadow-sm",
+          "max-w-[75%] px-4 py-3 rounded-xl shadow-sm",
           isUser
             ? "bg-chat-user text-chat-user-foreground rounded-br-md"
             : "bg-chat-assistant text-chat-assistant-foreground rounded-bl-md"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -18,7 +19,7 @@ from app.models.chat import Chat
 from app.models.message import Message
 from app.schemas.message import MessageCreate
 from app.services.rag.embedding import Embedder
-from app.services.rag.generation import build_prompt
+from app.services.rag.generation import SYSTEM_INSTRUCTION, build_prompt
 from app.services.rag.llm import LLMProvider
 from app.services.rag.retrieval import RetrievedChunk, retrieve_context
 from app.services.rag.vector_store import VectorStore
@@ -55,6 +56,7 @@ def _retrieve_and_prompt(
         vector_store=vector_store,
         document_ids=None,
         limit=settings.retrieval_top_k,
+        min_score=settings.retrieval_score_threshold,
     )
     return chunks, build_prompt(query, chunks)
 
@@ -97,7 +99,12 @@ def post_message_to_chat(
     persist the assistant message + its citations. Used by the JSON endpoint."""
     settings = get_settings()
     user_message = create_message(
-        db, chat_id=chat.id, user_id=chat.user_id, role="user", content=payload.content
+        db,
+        chat_id=chat.id,
+        user_id=chat.user_id,
+        role="user",
+        content=payload.content,
+        created_at=datetime.now(UTC),
     )
     chunks, prompt = _retrieve_and_prompt(
         db,
@@ -106,7 +113,7 @@ def post_message_to_chat(
         embedder=embedder,
         vector_store=vector_store,
     )
-    answer = "".join(llm.stream(prompt))
+    answer = "".join(llm.stream(prompt, system=SYSTEM_INSTRUCTION))
     assistant_message = create_message(
         db,
         chat_id=chat.id,
@@ -114,6 +121,7 @@ def post_message_to_chat(
         role="assistant",
         content=answer,
         model=settings.generation_model,
+        created_at=datetime.now(UTC),
     )
     _persist_citations(db, assistant_message.id, chunks)
     touch_chat(db, chat)
@@ -127,8 +135,9 @@ def start_message_turn(db: Session, chat: Chat, content: str) -> tuple[Message, 
     """Persist the user message and an empty 'streaming' assistant message so
     the SSE endpoint can fill it live."""
     settings = get_settings()
+    now = datetime.now(UTC)
     user_message = create_message(
-        db, chat_id=chat.id, user_id=chat.user_id, role="user", content=content
+        db, chat_id=chat.id, user_id=chat.user_id, role="user", content=content, created_at=now
     )
     assistant_message = create_message(
         db,
@@ -138,6 +147,9 @@ def start_message_turn(db: Session, chat: Chat, content: str) -> tuple[Message, 
         content="",
         status="streaming",
         model=settings.generation_model,
+        # Strictly after the user message so history can't render answer-before-question
+        # (both rows otherwise share the transaction's now() timestamp).
+        created_at=now + timedelta(milliseconds=1),
     )
     touch_chat(db, chat)
     db.commit()
@@ -163,7 +175,7 @@ def stream_message_reply(
         db, user_id=user_id, query=query, embedder=embedder, vector_store=vector_store
     )
     parts: list[str] = []
-    for token in llm.stream(prompt):
+    for token in llm.stream(prompt, system=SYSTEM_INSTRUCTION):
         parts.append(token)
         yield token
     finalize_assistant_message(

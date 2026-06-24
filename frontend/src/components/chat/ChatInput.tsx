@@ -43,7 +43,7 @@ export const ChatInput = ({
 
   return (
     <form onSubmit={handleSubmit} className="relative">
-      <div className="flex items-end gap-3 p-4 bg-card rounded-2xl border border-border shadow-lg">
+      <div className="flex items-end gap-3 p-4 bg-card rounded-xl border border-border shadow-lg">
         <textarea
           ref={textareaRef}
           value={input}
@@ -64,7 +64,7 @@ export const ChatInput = ({
           type="submit"
           size="icon"
           disabled={disabled || !input.trim()}
-          className="flex-shrink-0 rounded-xl"
+          className="flex-shrink-0 rounded-lg"
         >
           <Send className="w-4 h-4" />
         </Button>

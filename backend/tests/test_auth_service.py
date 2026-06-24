@@ -7,6 +7,7 @@ from app.schemas.auth import OAuthProfile
 from app.services.auth_service import (
     authenticate_user,
     register_user_with_password,
+    update_current_user,
     upsert_user_from_oauth_profile,
 )
 
@@ -110,6 +111,42 @@ def test_authenticate_user_rejects_wrong_password(monkeypatch) -> None:
 
     assert result is None
     db.commit.assert_not_called()
+
+
+def test_update_current_user_sets_name_and_onboarding(monkeypatch) -> None:
+    db = Mock()
+    user = SimpleNamespace(id=uuid4(), name=None, onboarded_at=None)
+    profile_calls = []
+    onboarded_calls = []
+    monkeypatch.setattr(
+        f"{AUTH_SERVICE_MODULE}.update_user_profile",
+        lambda _db, u, **kwargs: profile_calls.append(kwargs) or u,
+    )
+    monkeypatch.setattr(
+        f"{AUTH_SERVICE_MODULE}.mark_user_onboarded",
+        lambda _db, u: onboarded_calls.append(u) or u,
+    )
+
+    update_current_user(db, user, name="Dev", onboarded=True)
+
+    assert profile_calls == [{"name": "Dev", "avatar_url": None}]
+    assert onboarded_calls == [user]
+    db.commit.assert_called_once()
+
+
+def test_update_current_user_skips_onboarding_when_not_requested(monkeypatch) -> None:
+    db = Mock()
+    user = SimpleNamespace(id=uuid4(), name="Dev")
+    onboarded_calls = []
+    monkeypatch.setattr(f"{AUTH_SERVICE_MODULE}.update_user_profile", lambda _db, u, **k: u)
+    monkeypatch.setattr(
+        f"{AUTH_SERVICE_MODULE}.mark_user_onboarded",
+        lambda _db, u: onboarded_calls.append(u) or u,
+    )
+
+    update_current_user(db, user, name="New Name")
+
+    assert onboarded_calls == []  # onboarded not requested → not stamped
 
 
 def test_authenticate_user_rejects_oauth_only_user(monkeypatch) -> None:

@@ -73,7 +73,7 @@ export function RegisterForm() {
                   <Input
                     autoComplete="name"
                     placeholder="Your name"
-                    className="h-11 rounded-xl"
+                    className="h-11 rounded-lg"
                     {...field}
                   />
                 </FormControl>
@@ -93,7 +93,7 @@ export function RegisterForm() {
                     type="email"
                     autoComplete="email"
                     placeholder="you@company.com"
-                    className="h-11 rounded-xl"
+                    className="h-11 rounded-lg"
                     {...field}
                   />
                 </FormControl>
@@ -113,7 +113,7 @@ export function RegisterForm() {
                     type="password"
                     autoComplete="new-password"
                     placeholder="At least 8 characters"
-                    className="h-11 rounded-xl"
+                    className="h-11 rounded-lg"
                     {...field}
                   />
                 </FormControl>
@@ -133,7 +133,7 @@ export function RegisterForm() {
                     type="password"
                     autoComplete="new-password"
                     placeholder="Repeat your password"
-                    className="h-11 rounded-xl"
+                    className="h-11 rounded-lg"
                     {...field}
                   />
                 </FormControl>
@@ -144,7 +144,7 @@ export function RegisterForm() {
 
           <Button
             type="submit"
-            className="h-11 w-full rounded-xl"
+            className="h-11 w-full rounded-lg"
             disabled={mutation.isPending}
           >
             {mutation.isPending ? (

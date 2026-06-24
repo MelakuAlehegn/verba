@@ -43,10 +43,21 @@ export function DocumentCard({ document }: { document: Document }) {
     });
   };
 
+  // A document that has sat in a non-terminal state too long isn't progressing —
+  // surface the likely cause instead of an indefinite silent spinner.
+  const isActive = document.status === "queued" || document.status === "processing";
+  const ageMs = Date.now() - new Date(document.updated_at).getTime();
+  const stalledHint =
+    isActive && ageMs > 60_000
+      ? document.status === "queued"
+        ? "Still queued — is the ingestion worker running?"
+        : "Still processing — this can happen on AI rate limits or large files."
+      : null;
+
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
           <FileText className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -101,6 +112,10 @@ export function DocumentCard({ document }: { document: Document }) {
         <p className="rounded-lg bg-destructive/5 px-3 py-2 text-xs text-destructive">
           {document.error_message}
         </p>
+      ) : null}
+
+      {stalledHint ? (
+        <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">{stalledHint}</p>
       ) : null}
     </div>
   );

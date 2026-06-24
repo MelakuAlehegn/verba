@@ -7,10 +7,17 @@ interface ChatComposerProps {
   disabled?: boolean;
   autoFocus?: boolean;
   placeholder?: string;
+  initialValue?: string;
 }
 
-export function ChatComposer({ onSend, disabled, autoFocus, placeholder }: ChatComposerProps) {
-  const [value, setValue] = useState("");
+export function ChatComposer({
+  onSend,
+  disabled,
+  autoFocus,
+  placeholder,
+  initialValue,
+}: ChatComposerProps) {
+  const [value, setValue] = useState(initialValue ?? "");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-grow up to a cap.
@@ -30,7 +37,7 @@ export function ChatComposer({ onSend, disabled, autoFocus, placeholder }: ChatC
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-      <div className="flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-ring">
+      <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 shadow-sm focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-ring">
         <textarea
           ref={textareaRef}
           autoFocus={autoFocus}
@@ -48,7 +55,7 @@ export function ChatComposer({ onSend, disabled, autoFocus, placeholder }: ChatC
         />
         <Button
           size="icon"
-          className="h-9 w-9 shrink-0 rounded-xl"
+          className="h-9 w-9 shrink-0 rounded-lg"
           onClick={submit}
           disabled={disabled || !value.trim()}
           aria-label="Send message"
