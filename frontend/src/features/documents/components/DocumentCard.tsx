@@ -55,9 +55,9 @@ export function DocumentCard({ document }: { document: Document }) {
       : null;
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
           <FileText className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">

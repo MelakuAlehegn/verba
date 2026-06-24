@@ -57,7 +57,7 @@ export function CitationChips({
           </SheetHeader>
           <div className="mt-6 space-y-5">
             {cited.map((citation) => (
-              <div key={citation.rank} className="rounded-xl border border-border bg-card p-4">
+              <div key={citation.rank} className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <span className="flex h-5 w-5 items-center justify-center rounded bg-secondary text-xs text-primary">
                     {citation.rank}

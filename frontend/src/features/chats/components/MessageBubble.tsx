@@ -36,7 +36,7 @@ export function MessageBubble({ message }: { message: Message }) {
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground">
           {message.content}
         </div>
       </div>
@@ -47,7 +47,7 @@ export function MessageBubble({ message }: { message: Message }) {
     <div className="flex justify-start">
       <div
         className={cn(
-          "max-w-[85%] rounded-2xl rounded-bl-md bg-secondary px-4 py-3 text-secondary-foreground",
+          "max-w-[85%] rounded-xl rounded-bl-md bg-secondary px-4 py-3 text-secondary-foreground",
           isFailed && "bg-destructive/5",
         )}
       >

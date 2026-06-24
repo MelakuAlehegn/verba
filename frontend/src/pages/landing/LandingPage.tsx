@@ -26,7 +26,7 @@ function HeroPrompt() {
 
   return (
     <div className="mx-auto mt-10 w-full max-w-xl">
-      <div className="flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-ring">
+      <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 shadow-sm focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-ring">
         <textarea
           rows={1}
           value={value}
@@ -41,7 +41,7 @@ function HeroPrompt() {
           className="max-h-32 flex-1 resize-none bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
           aria-label="Ask your documents"
         />
-        <Button size="icon" className="h-9 w-9 shrink-0 rounded-xl" onClick={submit} aria-label="Get started">
+        <Button size="icon" className="h-9 w-9 shrink-0 rounded-lg" onClick={submit} aria-label="Get started">
           <ArrowUp className="h-4 w-4" />
         </Button>
       </div>
@@ -101,10 +101,10 @@ export default function LandingPage() {
         </span>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Button asChild variant="ghost" size="sm" className="rounded-xl">
+          <Button asChild variant="ghost" size="sm" className="rounded-lg">
             <Link to="/login">Sign in</Link>
           </Button>
-          <Button asChild size="sm" className="rounded-xl">
+          <Button asChild size="sm" className="rounded-lg">
             <Link to="/register">Get started</Link>
           </Button>
         </div>
@@ -124,7 +124,7 @@ export default function LandingPage() {
 
         <section className="mt-24 grid gap-6 text-left sm:grid-cols-3">
           {STEPS.map((step) => (
-            <div key={step.title} className="rounded-2xl border border-border bg-card/60 p-5">
+            <div key={step.title} className="rounded-xl border border-border bg-card/60 p-5">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-primary">
                 <step.icon className="h-4 w-4" />
               </span>

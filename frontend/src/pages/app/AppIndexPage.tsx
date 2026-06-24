@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BrandOrb } from "@/features/chats/components/BrandOrb";
 import { ChatComposer } from "@/features/chats/components/ChatComposer";
 import { useCreateChat } from "@/features/chats/hooks";
 import { useDocuments } from "@/features/documents/hooks";
@@ -42,6 +43,9 @@ export default function AppIndexPage() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center">
       <div className="w-full max-w-2xl px-4 text-center">
+        <div className="mb-8 flex justify-center">
+          <BrandOrb />
+        </div>
         <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
           Ask anything about your documents.
         </h1>

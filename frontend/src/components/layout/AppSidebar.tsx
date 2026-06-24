@@ -1,11 +1,11 @@
-import { Bell, FileText, MessageSquareText, Plus, Quote, Settings } from "lucide-react";
+import { Bell, FileText, MessageSquareText, Quote, Search, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ChatList } from "@/features/chats/components/ChatList";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { UserMenu } from "@/components/layout/UserMenu";
-import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -14,10 +14,10 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
+  SidebarInput,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar";
 
 interface NavEntry {
@@ -52,14 +52,7 @@ function NavItem({ entry }: { entry: NavEntry }) {
 }
 
 export function AppSidebar() {
-  const navigate = useNavigate();
-  const { isMobile, setOpenMobile } = useSidebar();
-
-  const startNewChat = () => {
-    // F5 will create the chat lazily on first message; for now, open the canvas.
-    navigate("/app");
-    if (isMobile) setOpenMobile(false);
-  };
+  const [query, setQuery] = useState("");
 
   return (
     <Sidebar>
@@ -70,10 +63,15 @@ export function AppSidebar() {
           </span>
           <span className="text-base font-semibold tracking-tight">Verba</span>
         </NavLink>
-        <Button onClick={startNewChat} className="w-full justify-start gap-2 rounded-xl">
-          <Plus className="h-4 w-4" />
-          New chat
-        </Button>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <SidebarInput
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search chats"
+            className="pl-8"
+          />
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
@@ -97,9 +95,9 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Your chats</SidebarGroupLabel>
+          <SidebarGroupLabel>History</SidebarGroupLabel>
           <SidebarGroupContent>
-            <ChatList />
+            <ChatList query={query} />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

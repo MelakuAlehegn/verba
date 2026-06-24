@@ -61,7 +61,7 @@ export function UploadDropzone() {
         handleFiles(event.dataTransfer.files);
       }}
       className={cn(
-        "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card/50 px-6 py-10 text-center transition-colors",
+        "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card/50 px-6 py-10 text-center transition-colors",
         "hover:border-primary/50 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isDragging && "border-primary bg-secondary/60",
       )}

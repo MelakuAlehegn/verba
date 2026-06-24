@@ -70,7 +70,7 @@ export function LoginForm() {
                     type="email"
                     autoComplete="email"
                     placeholder="you@company.com"
-                    className="h-11 rounded-xl"
+                    className="h-11 rounded-lg"
                     {...field}
                   />
                 </FormControl>
@@ -90,7 +90,7 @@ export function LoginForm() {
                     type="password"
                     autoComplete="current-password"
                     placeholder="••••••••"
-                    className="h-11 rounded-xl"
+                    className="h-11 rounded-lg"
                     {...field}
                   />
                 </FormControl>
@@ -101,7 +101,7 @@ export function LoginForm() {
 
           <Button
             type="submit"
-            className="h-11 w-full rounded-xl"
+            className="h-11 w-full rounded-lg"
             disabled={mutation.isPending}
           >
             {mutation.isPending ? (

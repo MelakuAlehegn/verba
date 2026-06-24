@@ -74,7 +74,7 @@ export default function OnboardingPage() {
 
         {step === 0 ? (
           <div className="text-center">
-            <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary text-primary">
+            <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-primary">
               <Sparkles className="h-6 w-6" />
             </span>
             <h1 className="text-2xl font-semibold tracking-tight">
@@ -84,13 +84,13 @@ export default function OnboardingPage() {
               Upload your documents and ask questions — Verba answers from your files and shows the
               exact passages it used. Let's set you up in a few steps.
             </p>
-            <Button className="mt-8 w-full gap-2 rounded-xl" onClick={() => setStep(1)}>
+            <Button className="mt-8 w-full gap-2 rounded-lg" onClick={() => setStep(1)}>
               Get started <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         ) : step === 1 ? (
           <div>
-            <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary text-primary">
+            <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-primary">
               <UserRound className="h-6 w-6" />
             </span>
             <h1 className="text-2xl font-semibold tracking-tight">What should we call you?</h1>
@@ -102,16 +102,16 @@ export default function OnboardingPage() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Your name"
-                className="h-11 rounded-xl"
+                className="h-11 rounded-lg"
               />
             </div>
-            <Button className="mt-8 w-full gap-2 rounded-xl" onClick={saveName} disabled={saving}>
+            <Button className="mt-8 w-full gap-2 rounded-lg" onClick={saveName} disabled={saving}>
               Continue <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         ) : step === 2 ? (
           <div>
-            <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary text-primary">
+            <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-primary">
               <FileText className="h-6 w-6" />
             </span>
             <h1 className="text-2xl font-semibold tracking-tight">Add your first document</h1>
@@ -126,7 +126,7 @@ export default function OnboardingPage() {
                 {documents.slice(0, 4).map((document) => (
                   <li
                     key={document.id}
-                    className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 text-sm"
+                    className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm"
                   >
                     <span className="truncate pr-2">{document.filename}</span>
                     <StatusBadge status={document.status} />
@@ -134,13 +134,13 @@ export default function OnboardingPage() {
                 ))}
               </ul>
             ) : null}
-            <Button className="mt-8 w-full gap-2 rounded-xl" onClick={() => setStep(3)}>
+            <Button className="mt-8 w-full gap-2 rounded-lg" onClick={() => setStep(3)}>
               Continue <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         ) : (
           <div className="text-center">
-            <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+            <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <Check className="h-6 w-6" />
             </span>
             <h1 className="text-2xl font-semibold tracking-tight">You're all set</h1>
@@ -148,7 +148,7 @@ export default function OnboardingPage() {
               Head to your workspace and ask your first question. Verba will answer from your
               documents, with sources.
             </p>
-            <Button className="mt-8 w-full rounded-xl" onClick={finish} disabled={saving}>
+            <Button className="mt-8 w-full rounded-lg" onClick={finish} disabled={saving}>
               Go to dashboard
             </Button>
           </div>

@@ -20,7 +20,7 @@ import { updateMe } from "@/lib/api/auth";
 import { cn } from "@/lib/utils";
 
 function Section({ children }: { children: React.ReactNode }) {
-  return <div className="space-y-5 rounded-2xl border border-border bg-card p-6">{children}</div>;
+  return <div className="space-y-5 rounded-xl border border-border bg-card p-6">{children}</div>;
 }
 
 function ProfileTab() {
@@ -45,11 +45,11 @@ function ProfileTab() {
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Your name"
-          className="h-11 max-w-sm rounded-xl"
+          className="h-11 max-w-sm rounded-lg"
         />
         <p className="text-xs text-muted-foreground">Shown on your profile in the sidebar.</p>
       </div>
-      <Button onClick={() => save.mutate()} disabled={save.isPending} className="rounded-xl">
+      <Button onClick={() => save.mutate()} disabled={save.isPending} className="rounded-lg">
         Save changes
       </Button>
     </Section>
@@ -65,7 +65,7 @@ function AccountTab() {
     <Section>
       <div className="space-y-2">
         <Label>Email</Label>
-        <Input value={user?.email ?? ""} disabled className="h-11 max-w-sm rounded-xl" />
+        <Input value={user?.email ?? ""} disabled className="h-11 max-w-sm rounded-lg" />
       </div>
 
       <div className="space-y-2">
@@ -74,7 +74,7 @@ function AccountTab() {
           value={settings?.default_provider}
           onValueChange={(value) => updateSettings.mutate({ default_provider: value })}
         >
-          <SelectTrigger className="h-11 max-w-sm rounded-xl">
+          <SelectTrigger className="h-11 max-w-sm rounded-lg">
             <SelectValue placeholder="Select a provider" />
           </SelectTrigger>
           <SelectContent>
@@ -88,7 +88,7 @@ function AccountTab() {
       </div>
 
       <div className="border-t border-border pt-5">
-        <Button variant="outline" className="rounded-xl" onClick={() => void logout()}>
+        <Button variant="outline" className="rounded-lg" onClick={() => void logout()}>
           Sign out
         </Button>
       </div>
@@ -118,7 +118,7 @@ function AppearanceTab() {
                 type="button"
                 onClick={() => setTheme(option.value)}
                 className={cn(
-                  "flex flex-col items-center gap-2 rounded-xl border p-4 text-sm transition-colors",
+                  "flex flex-col items-center gap-2 rounded-lg border p-4 text-sm transition-colors",
                   active
                     ? "border-primary bg-secondary text-foreground ring-1 ring-primary"
                     : "border-border text-muted-foreground hover:bg-secondary/50",

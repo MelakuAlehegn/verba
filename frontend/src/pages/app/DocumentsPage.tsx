@@ -21,11 +21,11 @@ export default function DocumentsPage() {
         {isLoading ? (
           <div className="grid gap-4 sm:grid-cols-2">
             {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="h-28 rounded-2xl" />
+              <Skeleton key={index} className="h-28 rounded-xl" />
             ))}
           </div>
         ) : isError ? (
-          <div className="rounded-2xl border border-border bg-card p-8 text-center">
+          <div className="rounded-xl border border-border bg-card p-8 text-center">
             <p className="text-sm text-muted-foreground">Couldn't load your documents.</p>
             <button
               onClick={() => refetch()}
@@ -41,7 +41,7 @@ export default function DocumentsPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-border bg-card/40 p-10 text-center">
+          <div className="rounded-xl border border-dashed border-border bg-card/40 p-10 text-center">
             <p className="font-medium">No documents yet</p>
             <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
               Add your first file above. Once it's ready, head to Ask and start asking questions.

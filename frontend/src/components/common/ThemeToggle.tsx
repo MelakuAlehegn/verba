@@ -1,20 +1,32 @@
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const current = theme === "system" ? resolvedTheme : theme;
+
+  const option = (value: "light" | "dark", Icon: typeof Sun, label: string) => (
+    <button
+      type="button"
+      onClick={() => setTheme(value)}
+      aria-label={label}
+      aria-pressed={current === value}
+      className={cn(
+        "flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+        current === value
+          ? "bg-secondary text-primary shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      <Icon className="h-4 w-4" />
+    </button>
+  );
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="relative h-9 w-9"
-      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      aria-label="Toggle theme"
-    >
-      <Sun className="h-[1.15rem] w-[1.15rem] rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
-      <Moon className="absolute h-[1.15rem] w-[1.15rem] rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
-    </Button>
+    <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-card p-0.5">
+      {option("light", Sun, "Light mode")}
+      {option("dark", Moon, "Dark mode")}
+    </div>
   );
 }
