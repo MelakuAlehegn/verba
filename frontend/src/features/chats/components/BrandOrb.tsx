@@ -6,13 +6,11 @@ import { Sparkles } from "lucide-react";
 export function BrandOrb() {
   return (
     <div className="relative mx-auto flex h-44 w-full max-w-lg items-center justify-center" aria-hidden>
-      {/* Ambient glow — a centered circle big enough to contain the orbit at any
-          rotation (the ellipse's long axis swings vertical as it spins). */}
+      {/* Ambient glow — a blurred solid circle (no hard radial edge); the heavy
+          blur dissolves it smoothly to nothing in both themes. */}
       <div
-        className="absolute left-1/2 top-1/2 h-[28rem] w-[28rem] max-w-[130vw] -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{
-          background: "radial-gradient(circle, oklch(0.78 0.12 162 / 0.24), transparent 78%)",
-        }}
+        className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px]"
+        style={{ background: "var(--orb-glow)" }}
       />
 
       {/* Orbiting dashed ellipses */}
