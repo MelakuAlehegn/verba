@@ -146,14 +146,3 @@ cd frontend && npx tsc --noEmit && npm run lint && npm run build
 
 CI runs ruff + pytest on every push and pull request.
 
-## Status
-
-Functionally complete end to end: authentication, onboarding, document upload and
-ingestion, streamed cited chat, and settings. Planned next: retrieval-quality
-improvements (reranking, query rewriting), per-chat document scoping, and
-production hardening (rate limiting, observability, deployment).
-
-## License
-
-No license has been set yet — all rights reserved. Add a `LICENSE` file to define
-usage terms.
