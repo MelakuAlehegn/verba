@@ -21,7 +21,7 @@ class FakeVectorStore:
     def upsert(self, points) -> None:
         self.points.extend(points)
 
-    def search(self, vector, *, user_id, document_ids=None, limit=8):
+    def search(self, vector, *, user_id, document_ids=None, limit=8, with_vectors=False):
         def dot(a, b):
             return sum(x * y for x, y in zip(a, b, strict=False))
 
@@ -31,7 +31,11 @@ class FakeVectorStore:
             candidates = [p for p in candidates if p.document_id in doc_set]
         ranked = sorted(candidates, key=lambda p: dot(vector, p.vector), reverse=True)
         return [
-            VectorMatch(chunk_id=p.chunk_id, score=dot(vector, p.vector))
+            VectorMatch(
+                chunk_id=p.chunk_id,
+                score=dot(vector, p.vector),
+                vector=list(p.vector) if with_vectors else None,
+            )
             for p in ranked[:limit]
         ]
 
@@ -104,5 +108,22 @@ def test_search_filters_by_user_and_parses_matches() -> None:
     matches = store.search([0.1, 0.2], user_id=user_id, limit=5)
 
     assert matches == [VectorMatch(chunk_id=chunk_id, score=0.9)]
+    assert matches[0].vector is None  # not requested → not carried
+    assert client.query_points.call_args.kwargs["with_vectors"] is False
     query_filter = client.query_points.call_args.kwargs["query_filter"]
     assert any(condition.key == "user_id" for condition in query_filter.must)
+
+
+def test_search_carries_vectors_when_requested() -> None:
+    store, client = _qdrant_store_with_mock()
+    chunk_id = uuid4()
+    client.query_points.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(payload={"chunk_id": str(chunk_id)}, score=0.9, vector=[0.1, 0.2])
+        ]
+    )
+
+    matches = store.search([0.1, 0.2], user_id=uuid4(), limit=5, with_vectors=True)
+
+    assert matches[0].vector == [0.1, 0.2]
+    assert client.query_points.call_args.kwargs["with_vectors"] is True

@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     # Minimum cosine similarity for a chunk to count as relevant context. Below
     # this, an off-topic question gets empty context → a grounded "I don't know".
     retrieval_score_threshold: float = 0.5
+    # MMR reranking: over-fetch this many candidates, then pick retrieval_top_k by
+    # Maximal Marginal Relevance. Set <= retrieval_top_k to disable reranking.
+    rerank_candidate_pool: int = 20
+    # MMR relevance/diversity balance: 1.0 = pure relevance, 0.0 = pure diversity.
+    mmr_lambda: float = 0.7
     generation_model: str = "gemini-2.5-flash"
     google_api_key: str = ""
     embedding_model: str = "gemini-embedding-001"

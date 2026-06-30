@@ -40,6 +40,10 @@ class VectorPoint:
 class VectorMatch:
     chunk_id: UUID
     score: float
+    # Populated only when search(..., with_vectors=True). MMR reranking needs the
+    # candidate vectors to measure redundancy between chunks; ordinary retrieval
+    # leaves it None to avoid shipping vectors over the wire.
+    vector: list[float] | None = None
 
 
 class VectorStore(Protocol):
@@ -54,6 +58,7 @@ class VectorStore(Protocol):
         user_id: UUID,
         document_ids: Iterable[UUID] | None = None,
         limit: int = 8,
+        with_vectors: bool = False,
     ) -> list[VectorMatch]: ...
 
     def delete_document(self, document_id: UUID) -> None: ...
@@ -106,6 +111,7 @@ class QdrantVectorStore:
         user_id: UUID,
         document_ids: Iterable[UUID] | None = None,
         limit: int = 8,
+        with_vectors: bool = False,
     ) -> list[VectorMatch]:
         # Tenant filter is mandatory; document scope is optional (chat scoping).
         conditions = [FieldCondition(key="user_id", match=MatchValue(value=str(user_id)))]
@@ -118,9 +124,14 @@ class QdrantVectorStore:
             query=vector,
             query_filter=Filter(must=conditions),
             limit=limit,
+            with_vectors=with_vectors,
         )
         return [
-            VectorMatch(chunk_id=UUID(point.payload["chunk_id"]), score=point.score)
+            VectorMatch(
+                chunk_id=UUID(point.payload["chunk_id"]),
+                score=point.score,
+                vector=list(point.vector) if with_vectors else None,
+            )
             for point in response.points
         ]
 

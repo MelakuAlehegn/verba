@@ -108,6 +108,56 @@ def test_retrieve_returns_empty_when_no_matches() -> None:
     assert results == []
 
 
+def test_retrieve_reranks_with_mmr_when_pool_exceeds_limit(monkeypatch) -> None:
+    # Over-fetch 3 candidates, keep top 2 by MMR: a (top), then c (diverse) over
+    # b (a near-duplicate of a with a higher score).
+    a, b, c = uuid4(), uuid4(), uuid4()
+    vector_store = Mock()
+    vector_store.search.return_value = [
+        VectorMatch(chunk_id=a, score=0.90, vector=[1.0, 0.0]),
+        VectorMatch(chunk_id=b, score=0.85, vector=[1.0, 0.0]),
+        VectorMatch(chunk_id=c, score=0.80, vector=[0.0, 1.0]),
+    ]
+    monkeypatch.setattr(
+        f"{MODULE}.get_chunks_by_ids",
+        lambda db, ids, uid: [_row(cid, "text") for cid in ids],
+    )
+
+    results = retrieve_context(
+        Mock(),
+        user_id=uuid4(),
+        query="q",
+        embedder=_embedder(),
+        vector_store=vector_store,
+        limit=2,
+        candidate_pool=10,
+        mmr_lambda=0.7,
+    )
+
+    assert [r.chunk_id for r in results] == [a, c]  # b dropped as redundant
+    # Reranking over-fetches the wider pool, with vectors.
+    assert vector_store.search.call_args.kwargs["limit"] == 10
+    assert vector_store.search.call_args.kwargs["with_vectors"] is True
+
+
+def test_retrieve_without_reranking_does_not_fetch_vectors() -> None:
+    vector_store = Mock()
+    vector_store.search.return_value = []
+
+    retrieve_context(
+        Mock(),
+        user_id=uuid4(),
+        query="q",
+        embedder=_embedder(),
+        vector_store=vector_store,
+        limit=8,
+        candidate_pool=0,  # disabled
+    )
+
+    assert vector_store.search.call_args.kwargs["limit"] == 8
+    assert vector_store.search.call_args.kwargs["with_vectors"] is False
+
+
 def test_retrieve_filters_by_tenant(monkeypatch) -> None:
     user_id = uuid4()
     chunk_id = uuid4()

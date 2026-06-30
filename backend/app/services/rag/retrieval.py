@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.crud.document_chunk import get_chunks_by_ids
 from app.services.rag.embedding import Embedder
+from app.services.rag.reranking import mmr_rerank
 from app.services.rag.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -40,10 +41,22 @@ def retrieve_context(
     document_ids: Iterable[UUID] | None = None,
     limit: int = 8,
     min_score: float = 0.0,
+    candidate_pool: int = 0,
+    mmr_lambda: float = 0.7,
 ) -> list[RetrievedChunk]:
+    # Reranking over-fetches a wider candidate pool, then MMR picks `limit` of
+    # them by relevance + diversity. Disabled (pool <= limit) → fetch exactly
+    # `limit` and skip the extra vector payload.
+    reranking = candidate_pool > limit
+    fetch_limit = candidate_pool if reranking else limit
+
     query_vector = embedder.embed_query(query)
     matches = vector_store.search(
-        query_vector, user_id=user_id, document_ids=document_ids, limit=limit
+        query_vector,
+        user_id=user_id,
+        document_ids=document_ids,
+        limit=fetch_limit,
+        with_vectors=reranking,
     )
     if not matches:
         return []
@@ -64,11 +77,19 @@ def retrieve_context(
     if not relevant:
         return []
 
+    # Rerank when we actually fetched candidate vectors; otherwise keep Qdrant's
+    # relevance order and just cap at `limit`.
+    if reranking and all(match.vector is not None for match in relevant):
+        relevant = mmr_rerank(relevant, limit=limit, lambda_mult=mmr_lambda)
+    else:
+        relevant = relevant[:limit]
+
     rows = get_chunks_by_ids(db, [match.chunk_id for match in relevant], user_id)
     by_id = {row.id: row for row in rows}
 
-    # Preserve Qdrant's similarity ranking (the IN-query order isn't sorted),
-    # and drop any vector whose Postgres row is gone (store drift).
+    # Preserve the ranking we settled on above (MMR, or Qdrant similarity when
+    # reranking is off) — the IN-query order isn't sorted — and drop any vector
+    # whose Postgres row is gone (store drift).
     results: list[RetrievedChunk] = []
     for match in relevant:
         row = by_id.get(match.chunk_id)

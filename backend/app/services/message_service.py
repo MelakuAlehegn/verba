@@ -57,6 +57,8 @@ def _retrieve_and_prompt(
         document_ids=None,
         limit=settings.retrieval_top_k,
         min_score=settings.retrieval_score_threshold,
+        candidate_pool=settings.rerank_candidate_pool,
+        mmr_lambda=settings.mmr_lambda,
     )
     return chunks, build_prompt(query, chunks)
 
