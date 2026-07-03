@@ -80,7 +80,19 @@ def retrieve_context(
     # Rerank when we actually fetched candidate vectors; otherwise keep Qdrant's
     # relevance order and just cap at `limit`.
     if reranking and all(match.vector is not None for match in relevant):
-        relevant = mmr_rerank(relevant, limit=limit, lambda_mult=mmr_lambda)
+        pool = relevant
+        relevant = mmr_rerank(pool, limit=limit, lambda_mult=mmr_lambda)
+        # Show the reorder: each kept chunk as (its pure-relevance rank, score).
+        # Non-sequential ranks mean MMR pulled in a lower-ranked but more diverse
+        # chunk over a higher-scored near-duplicate.
+        rank_by_id = {match.chunk_id: i for i, match in enumerate(pool, start=1)}
+        logger.info(
+            "MMR rerank (λ=%.2f): %d candidates → kept %d; order [rank:score] = %s",
+            mmr_lambda,
+            len(pool),
+            len(relevant),
+            [f"{rank_by_id[m.chunk_id]}:{m.score:.3f}" for m in relevant],
+        )
     else:
         relevant = relevant[:limit]
 
