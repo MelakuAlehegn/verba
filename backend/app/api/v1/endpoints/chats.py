@@ -25,6 +25,7 @@ from app.services.message_service import (
     finalize_assistant_message,
     list_messages_for_chat,
     post_message_to_chat,
+    recent_history,
     start_message_turn,
     stream_message_reply,
 )
@@ -135,8 +136,11 @@ def stream_message_endpoint(
     vector_store: VectorStore = Depends(get_vector_store),
     llm: LLMProvider = Depends(get_llm_provider),
 ) -> StreamingResponse:
-    # Persist the user turn + an empty 'streaming' assistant row synchronously,
-    # then capture ids into locals for the generator.
+    # Capture history before persisting this turn (so the rewriter sees only
+    # prior conversation), then persist the user turn + an empty 'streaming'
+    # assistant row synchronously and capture ids/history into locals for the
+    # generator (which runs in a separate DB session).
+    history = recent_history(db, chat.id)
     _, assistant_message = start_message_turn(db, chat, payload.content)
     user_id = chat.user_id
     chat_id = str(chat.id)
@@ -156,6 +160,7 @@ def stream_message_endpoint(
                 embedder=embedder,
                 vector_store=vector_store,
                 llm=llm,
+                history=history,
             )
             # Drain tokens; the generator returns the citation summary on finish.
             citations: list[dict[str, object]] = []

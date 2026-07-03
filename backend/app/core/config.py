@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     rerank_candidate_pool: int = 20
     # MMR relevance/diversity balance: 1.0 = pure relevance, 0.0 = pure diversity.
     mmr_lambda: float = 0.7
+    # Query rewriting: fold recent conversation into follow-up questions so they
+    # retrieve/generate as standalone queries. Costs one LLM call per follow-up
+    # (skipped on the first turn). Set False to disable.
+    query_rewrite_enabled: bool = True
+    query_rewrite_history_messages: int = 6
     generation_model: str = "gemini-2.5-flash"
     google_api_key: str = ""
     embedding_model: str = "gemini-embedding-001"

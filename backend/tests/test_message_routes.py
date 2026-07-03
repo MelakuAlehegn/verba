@@ -86,6 +86,7 @@ def test_stream_message_emits_token_and_done_events(monkeypatch) -> None:
     app = create_app()
     _override_auth_and_chat(app)
     assistant = _message("assistant", "")
+    monkeypatch.setattr(f"{CHATS_MODULE}.recent_history", lambda db, chat_id: [])
     monkeypatch.setattr(
         f"{CHATS_MODULE}.start_message_turn",
         lambda db, chat, content: (_message("user", content), assistant),

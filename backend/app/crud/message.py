@@ -26,6 +26,25 @@ def list_messages(
     ).all()
 
 
+def get_recent_messages(
+    db: Session,
+    chat_id: UUID,
+    *,
+    limit: int,
+) -> Sequence[Message]:
+    """The most recent `limit` messages, returned oldest-first (chronological).
+
+    Used to give the query rewriter a short window of prior conversation.
+    """
+    rows = db.scalars(
+        select(Message)
+        .where(Message.chat_id == chat_id)
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(limit)
+    ).all()
+    return list(reversed(rows))
+
+
 def create_message(
     db: Session,
     *,

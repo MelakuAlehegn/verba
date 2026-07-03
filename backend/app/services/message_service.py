@@ -11,6 +11,7 @@ from app.crud.chat import touch_chat
 from app.crud.message import (
     create_message,
     get_message_by_id,
+    get_recent_messages,
     list_messages,
     set_message_content,
 )
@@ -21,6 +22,7 @@ from app.schemas.message import MessageCreate
 from app.services.rag.embedding import Embedder
 from app.services.rag.generation import SYSTEM_INSTRUCTION, build_prompt
 from app.services.rag.llm import LLMProvider
+from app.services.rag.query_rewriting import rewrite_query
 from app.services.rag.retrieval import RetrievedChunk, retrieve_context
 from app.services.rag.vector_store import VectorStore
 
@@ -37,21 +39,38 @@ def list_messages_for_chat(
     return list_messages(db, chat.id, limit=limit, offset=offset)
 
 
+def recent_history(db: Session, chat_id: UUID) -> list[tuple[str, str]]:
+    """Recent conversation as `(role, content)`, oldest-first, for the query
+    rewriter. Call this *before* persisting the current turn. Empty-content rows
+    (e.g. an in-flight streaming assistant placeholder) are skipped."""
+    settings = get_settings()
+    rows = get_recent_messages(db, chat_id, limit=settings.query_rewrite_history_messages)
+    return [(row.role, row.content) for row in rows if row.content and row.content.strip()]
+
+
 def _retrieve_and_prompt(
     db: Session,
     *,
     user_id: UUID,
     query: str,
+    history: Sequence[tuple[str, str]],
     embedder: Embedder,
     vector_store: VectorStore,
+    llm: LLMProvider,
 ) -> tuple[list[RetrievedChunk], str]:
+    # Rewrite follow-ups into a standalone query so both retrieval *and*
+    # generation see resolved references. Used for both; the user's raw message
+    # is still what we persist and display.
+    settings = get_settings()
+    search_query = (
+        rewrite_query(query, history, llm=llm) if settings.query_rewrite_enabled else query
+    )
     # document_ids=None → all of the user's ingested documents. Per-chat
     # scoping is a later slice.
-    settings = get_settings()
     chunks = retrieve_context(
         db,
         user_id=user_id,
-        query=query,
+        query=search_query,
         embedder=embedder,
         vector_store=vector_store,
         document_ids=None,
@@ -60,7 +79,7 @@ def _retrieve_and_prompt(
         candidate_pool=settings.rerank_candidate_pool,
         mmr_lambda=settings.mmr_lambda,
     )
-    return chunks, build_prompt(query, chunks)
+    return chunks, build_prompt(search_query, chunks)
 
 
 def _persist_citations(db: Session, message_id: UUID, chunks: list[RetrievedChunk]) -> None:
@@ -100,6 +119,9 @@ def post_message_to_chat(
     """Non-streaming turn: persist user message, generate the full answer,
     persist the assistant message + its citations. Used by the JSON endpoint."""
     settings = get_settings()
+    # Capture history before persisting this turn, so the rewriter sees only
+    # prior conversation (not the question it's rewriting).
+    history = recent_history(db, chat.id)
     user_message = create_message(
         db,
         chat_id=chat.id,
@@ -112,8 +134,10 @@ def post_message_to_chat(
         db,
         user_id=chat.user_id,
         query=payload.content,
+        history=history,
         embedder=embedder,
         vector_store=vector_store,
+        llm=llm,
     )
     answer = "".join(llm.stream(prompt, system=SYSTEM_INSTRUCTION))
     assistant_message = create_message(
@@ -169,12 +193,19 @@ def stream_message_reply(
     embedder: Embedder,
     vector_store: VectorStore,
     llm: LLMProvider,
+    history: Sequence[tuple[str, str]] = (),
 ) -> Iterator[str]:
     """Yield answer tokens (for SSE), persist the finished message + citations,
     and return the citation summary as the generator's return value (so the
     endpoint can put it in the terminal 'done' event)."""
     chunks, prompt = _retrieve_and_prompt(
-        db, user_id=user_id, query=query, embedder=embedder, vector_store=vector_store
+        db,
+        user_id=user_id,
+        query=query,
+        history=history,
+        embedder=embedder,
+        vector_store=vector_store,
+        llm=llm,
     )
     parts: list[str] = []
     for token in llm.stream(prompt, system=SYSTEM_INSTRUCTION):
