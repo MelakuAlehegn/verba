@@ -1,5 +1,6 @@
 import { FileText, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { IngestionSteps } from "@/features/documents/components/IngestionSteps";
 import { StatusBadge } from "@/features/documents/components/StatusBadge";
 import { useDeleteDocument } from "@/features/documents/hooks";
 import {
@@ -14,7 +15,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import type { Document } from "@/lib/api/types";
+import type { Document, DocumentStatus } from "@/lib/api/types";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -42,6 +43,18 @@ export function DocumentCard({ document }: { document: Document }) {
       onError: () => toast.error("Couldn't remove that document. Try again."),
     });
   };
+
+  // Show the multi-step tracker while ingesting (or after a failure, to mark
+  // where it stopped); a ready/deleting document just gets the compact badge.
+  const INGESTING: DocumentStatus[] = [
+    "created",
+    "uploading",
+    "uploaded",
+    "queued",
+    "processing",
+    "failed",
+  ];
+  const showSteps = INGESTING.includes(document.status);
 
   // A document that has sat in a non-terminal state too long isn't progressing —
   // surface the likely cause instead of an indefinite silent spinner.
@@ -104,9 +117,15 @@ export function DocumentCard({ document }: { document: Document }) {
         </AlertDialog>
       </div>
 
-      <div className="flex items-center justify-between">
-        <StatusBadge status={document.status} />
-      </div>
+      {showSteps ? (
+        <div className="rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
+          <IngestionSteps status={document.status} />
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <StatusBadge status={document.status} />
+        </div>
+      )}
 
       {document.status === "failed" && document.error_message ? (
         <p className="rounded-lg bg-destructive/5 px-3 py-2 text-xs text-destructive">
