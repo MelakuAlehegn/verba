@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.models.document import Document
 from app.models.document_chunk import DocumentChunk
 
 
@@ -14,12 +15,21 @@ def get_chunks_by_ids(
 ) -> Sequence[DocumentChunk]:
     # Tenant-scoped: even though Qdrant already filtered by user_id, we filter
     # again here so a chunk can never cross tenants (defense in depth).
+    #
+    # We also drop chunks whose parent document is soft-deleted: a stray Qdrant
+    # point left by an incomplete delete (e.g. a pre-fix deletion) can otherwise
+    # inject content from a document the user removed. Joining to `documents` and
+    # requiring deleted_at IS NULL makes that impossible — the match is treated
+    # as store drift and skipped.
     if not chunk_ids:
         return []
     return db.scalars(
-        select(DocumentChunk).where(
+        select(DocumentChunk)
+        .join(Document, Document.id == DocumentChunk.document_id)
+        .where(
             DocumentChunk.id.in_(chunk_ids),
             DocumentChunk.user_id == user_id,
+            Document.deleted_at.is_(None),
         )
     ).all()
 

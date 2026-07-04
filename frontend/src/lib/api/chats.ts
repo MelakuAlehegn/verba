@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api/client";
-import type { Chat, Message } from "@/lib/api/types";
+import type { Chat, Document, Message } from "@/lib/api/types";
 
 export function listChats(): Promise<Chat[]> {
   return apiClient<Chat[]>("/chats");
@@ -19,4 +19,15 @@ export function deleteChat(id: string): Promise<void> {
 
 export function listMessages(chatId: string, limit = 100, offset = 0): Promise<Message[]> {
   return apiClient<Message[]>(`/chats/${chatId}/messages?limit=${limit}&offset=${offset}`);
+}
+
+export function listChatSources(chatId: string): Promise<Document[]> {
+  return apiClient<Document[]>(`/chats/${chatId}/documents`);
+}
+
+export function setChatSources(chatId: string, documentIds: string[]): Promise<Document[]> {
+  return apiClient<Document[]>(`/chats/${chatId}/documents`, {
+    method: "PUT",
+    body: { document_ids: documentIds },
+  });
 }

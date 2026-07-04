@@ -16,6 +16,10 @@ class ChatUpdate(BaseModel):
     provider: str | None = Field(default=None, max_length=32)
 
 
+class ChatSourcesUpdate(BaseModel):
+    document_ids: list[UUID] = Field(default_factory=list)
+
+
 class ChatRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

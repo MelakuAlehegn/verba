@@ -19,6 +19,7 @@ from app.crud.message_citation import create_message_citation
 from app.models.chat import Chat
 from app.models.message import Message
 from app.schemas.message import MessageCreate
+from app.services.chat_document_service import resolve_chat_scope
 from app.services.rag.embedding import Embedder
 from app.services.rag.generation import SYSTEM_INSTRUCTION, build_prompt
 from app.services.rag.llm import LLMProvider
@@ -54,6 +55,7 @@ def _retrieve_and_prompt(
     user_id: UUID,
     query: str,
     history: Sequence[tuple[str, str]],
+    document_ids: Sequence[UUID] | None,
     embedder: Embedder,
     vector_store: VectorStore,
     llm: LLMProvider,
@@ -65,15 +67,15 @@ def _retrieve_and_prompt(
     search_query = (
         rewrite_query(query, history, llm=llm) if settings.query_rewrite_enabled else query
     )
-    # document_ids=None → all of the user's ingested documents. Per-chat
-    # scoping is a later slice.
+    # document_ids scopes retrieval to the chat's sources; None means the chat is
+    # unscoped, so search all of the user's documents.
     chunks = retrieve_context(
         db,
         user_id=user_id,
         query=search_query,
         embedder=embedder,
         vector_store=vector_store,
-        document_ids=None,
+        document_ids=document_ids,
         limit=settings.retrieval_top_k,
         min_score=settings.retrieval_score_threshold,
         candidate_pool=settings.rerank_candidate_pool,
@@ -122,6 +124,7 @@ def post_message_to_chat(
     # Capture history before persisting this turn, so the rewriter sees only
     # prior conversation (not the question it's rewriting).
     history = recent_history(db, chat.id)
+    document_ids = resolve_chat_scope(db, chat)
     user_message = create_message(
         db,
         chat_id=chat.id,
@@ -135,6 +138,7 @@ def post_message_to_chat(
         user_id=chat.user_id,
         query=payload.content,
         history=history,
+        document_ids=document_ids,
         embedder=embedder,
         vector_store=vector_store,
         llm=llm,
@@ -194,6 +198,7 @@ def stream_message_reply(
     vector_store: VectorStore,
     llm: LLMProvider,
     history: Sequence[tuple[str, str]] = (),
+    document_ids: Sequence[UUID] | None = None,
 ) -> Iterator[str]:
     """Yield answer tokens (for SSE), persist the finished message + citations,
     and return the citation summary as the generator's return value (so the
@@ -203,6 +208,7 @@ def stream_message_reply(
         user_id=user_id,
         query=query,
         history=history,
+        document_ids=document_ids,
         embedder=embedder,
         vector_store=vector_store,
         llm=llm,

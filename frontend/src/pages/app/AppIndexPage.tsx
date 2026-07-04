@@ -1,16 +1,16 @@
-import { FileText } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BrandOrb } from "@/features/chats/components/BrandOrb";
 import { ChatComposer } from "@/features/chats/components/ChatComposer";
+import { SourcePicker } from "@/features/chats/components/SourcePicker";
 import { useCreateChat } from "@/features/chats/hooks";
-import { useDocuments } from "@/features/documents/hooks";
+import { setChatSources } from "@/lib/api/chats";
 import { LANDING_INTENT_KEY } from "@/pages/landing/LandingPage";
 
 const EXAMPLES = [
-  "Summarize my documents",
+  "Summarize these documents",
   "What are the key points?",
   "List any action items",
   "What does it say about pricing?",
@@ -19,8 +19,8 @@ const EXAMPLES = [
 export default function AppIndexPage() {
   const navigate = useNavigate();
   const createChat = useCreateChat();
-  const { data: documents } = useDocuments();
-  const hasReadyDocs = (documents ?? []).some((doc) => doc.status === "ready");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [starting, setStarting] = useState(false);
 
   // A question typed on the landing page is handed off here, prefilled so the
   // user can review and send (read once, then cleared).
@@ -30,13 +30,22 @@ export default function AppIndexPage() {
     return stored ?? "";
   });
 
+  const canStart = selected.length > 0 && !starting;
+
   const startChat = async (content: string) => {
+    if (selected.length === 0) {
+      toast.error("Pick at least one source for this chat.");
+      return;
+    }
     const title = content.length > 48 ? `${content.slice(0, 48)}…` : content;
+    setStarting(true);
     try {
       const chat = await createChat.mutateAsync(title);
+      await setChatSources(chat.id, selected);
       navigate(`/app/chats/${chat.id}`, { state: { initialMessage: content } });
     } catch {
       toast.error("Couldn't start a new chat. Try again.");
+      setStarting(false);
     }
   };
 
@@ -50,10 +59,21 @@ export default function AppIndexPage() {
           Ask anything about your documents.
         </h1>
         <p className="mx-auto mt-3 max-w-md text-balance text-muted-foreground">
-          Verba answers from your own files and shows the passages it used.
+          Verba answers from the sources you pick and shows the passages it used.
         </p>
 
-        {hasReadyDocs ? (
+        {/* Source gate — a chat must be grounded in at least one document. */}
+        <div className="mt-6 rounded-xl border border-border bg-card/50 p-4 text-left">
+          <p className="mb-3 text-sm font-medium">Sources for this chat</p>
+          <SourcePicker selected={selected} onChange={setSelected} />
+          {selected.length === 0 ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Select at least one document to start asking.
+            </p>
+          ) : null}
+        </div>
+
+        {selected.length > 0 ? (
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             {EXAMPLES.map((example) => (
               <Button
@@ -61,32 +81,27 @@ export default function AppIndexPage() {
                 variant="outline"
                 size="sm"
                 className="rounded-full"
-                disabled={createChat.isPending}
+                disabled={!canStart}
                 onClick={() => startChat(example)}
               >
                 {example}
               </Button>
             ))}
           </div>
-        ) : (
-          <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm text-muted-foreground">
-            <FileText className="h-4 w-4" />
-            <span>
-              Add a document first —{" "}
-              <Link to="/app/documents" className="font-medium text-primary hover:underline">
-                go to Documents
-              </Link>
-            </span>
-          </div>
-        )}
+        ) : null}
       </div>
 
       <div className="mt-6 w-full">
         <ChatComposer
           onSend={startChat}
-          disabled={createChat.isPending}
+          disabled={!canStart}
           autoFocus
           initialValue={intent}
+          placeholder={
+            selected.length === 0
+              ? "Select a source above to start…"
+              : "Ask anything about your sources…"
+          }
         />
       </div>
     </div>

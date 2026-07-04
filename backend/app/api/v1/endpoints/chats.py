@@ -12,8 +12,15 @@ from app.core.deps import get_current_user
 from app.core.sse import format_sse
 from app.models.chat import Chat
 from app.models.user import User
-from app.schemas.chat import ChatCreate, ChatRead, ChatUpdate
+from app.schemas.chat import ChatCreate, ChatRead, ChatSourcesUpdate, ChatUpdate
+from app.schemas.document import DocumentRead
 from app.schemas.message import MessageCreate, MessagePair, MessageRead
+from app.services.chat_document_service import (
+    UnknownDocumentError,
+    list_chat_sources,
+    resolve_chat_scope,
+    set_chat_sources,
+)
 from app.services.chat_service import (
     create_chat_for_user,
     delete_chat_for_user,
@@ -94,6 +101,31 @@ def delete_chat_endpoint(
     delete_chat_for_user(db, chat)
 
 
+@router.get("/{chat_id}/documents", response_model=list[DocumentRead])
+def list_chat_sources_endpoint(
+    chat: Chat = Depends(get_owned_chat),
+    db: Session = Depends(get_db),
+) -> list[DocumentRead]:
+    sources = list_chat_sources(db, chat)
+    return [DocumentRead.model_validate(document) for document in sources]
+
+
+@router.put("/{chat_id}/documents", response_model=list[DocumentRead])
+def set_chat_sources_endpoint(
+    payload: ChatSourcesUpdate,
+    chat: Chat = Depends(get_owned_chat),
+    db: Session = Depends(get_db),
+) -> list[DocumentRead]:
+    try:
+        sources = set_chat_sources(db, chat, payload.document_ids)
+    except UnknownDocumentError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more documents don't belong to you.",
+        ) from exc
+    return [DocumentRead.model_validate(document) for document in sources]
+
+
 @router.get("/{chat_id}/messages", response_model=list[MessageRead])
 def list_messages_endpoint(
     chat: Chat = Depends(get_owned_chat),
@@ -141,6 +173,7 @@ def stream_message_endpoint(
     # assistant row synchronously and capture ids/history into locals for the
     # generator (which runs in a separate DB session).
     history = recent_history(db, chat.id)
+    document_ids = resolve_chat_scope(db, chat)
     _, assistant_message = start_message_turn(db, chat, payload.content)
     user_id = chat.user_id
     chat_id = str(chat.id)
@@ -161,6 +194,7 @@ def stream_message_endpoint(
                 vector_store=vector_store,
                 llm=llm,
                 history=history,
+                document_ids=document_ids,
             )
             # Drain tokens; the generator returns the citation summary on finish.
             citations: list[dict[str, object]] = []

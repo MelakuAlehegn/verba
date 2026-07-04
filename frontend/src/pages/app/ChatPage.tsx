@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ChatComposer } from "@/features/chats/components/ChatComposer";
+import { ChatSourcesBar } from "@/features/chats/components/ChatSourcesBar";
 import { MessageList } from "@/features/chats/components/MessageList";
 import { useMessages } from "@/features/chats/hooks";
 import { useChatStream } from "@/features/chats/useChatStream";
@@ -30,7 +31,10 @@ export default function ChatPage() {
       <div className="flex-1 overflow-y-auto">
         <MessageList messages={messages} />
       </div>
-      <ChatComposer onSend={send} disabled={isStreaming} autoFocus />
+      <div className="border-t border-border/60">
+        <ChatSourcesBar chatId={chatId} />
+        <ChatComposer onSend={send} disabled={isStreaming} autoFocus />
+      </div>
     </div>
   );
 }
