@@ -5,6 +5,11 @@ import logging
 import sys
 from datetime import UTC, datetime
 
+from app.core.request_context import get_request_id
+
+# Structured fields the request middleware attaches via `extra=`.
+_EXTRA_FIELDS = ("method", "path", "status_code", "duration_ms")
+
 
 class JsonFormatter(logging.Formatter):
     """Serialize log records as compact JSON."""
@@ -16,6 +21,14 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
+
+        request_id = get_request_id()
+        if request_id:
+            payload["request_id"] = request_id
+
+        for field in _EXTRA_FIELDS:
+            if hasattr(record, field):
+                payload[field] = getattr(record, field)
 
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)

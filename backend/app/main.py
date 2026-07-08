@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.core.request_context import RequestContextMiddleware
 
 
 def create_app() -> FastAPI:
@@ -30,6 +31,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Added last → outermost: every request gets an id and access log, even ones
+    # rejected by CORS or failing in another middleware.
+    app.add_middleware(RequestContextMiddleware)
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
