@@ -61,6 +61,8 @@ class VectorStore(Protocol):
         with_vectors: bool = False,
     ) -> list[VectorMatch]: ...
 
+    def get_vectors(self, chunk_ids: Sequence[UUID]) -> dict[UUID, list[float]]: ...
+
     def delete_document(self, document_id: UUID) -> None: ...
 
 
@@ -134,6 +136,18 @@ class QdrantVectorStore:
             )
             for point in response.points
         ]
+
+    def get_vectors(self, chunk_ids: Sequence[UUID]) -> dict[UUID, list[float]]:
+        # Used by hybrid retrieval to MMR-rerank keyword-only hits (which arrive
+        # without a vector). Point id == chunk_id.
+        if not chunk_ids:
+            return {}
+        points = self._client.retrieve(
+            collection_name=self._collection,
+            ids=[str(chunk_id) for chunk_id in chunk_ids],
+            with_vectors=True,
+        )
+        return {UUID(str(point.id)): list(point.vector) for point in points}
 
     def delete_document(self, document_id: UUID) -> None:
         self._client.delete(

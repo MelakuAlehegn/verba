@@ -81,6 +81,7 @@ def _retrieve_and_prompt(
         min_score=settings.retrieval_score_threshold,
         candidate_pool=settings.rerank_candidate_pool,
         mmr_lambda=settings.mmr_lambda,
+        hybrid=settings.hybrid_search_enabled,
     )
     return chunks, build_prompt(search_query, chunks, history=memory)
 

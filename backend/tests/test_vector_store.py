@@ -39,6 +39,10 @@ class FakeVectorStore:
             for p in ranked[:limit]
         ]
 
+    def get_vectors(self, chunk_ids):
+        wanted = set(chunk_ids)
+        return {p.chunk_id: list(p.vector) for p in self.points if p.chunk_id in wanted}
+
     def delete_document(self, document_id) -> None:
         self.points = [p for p in self.points if p.document_id != document_id]
 

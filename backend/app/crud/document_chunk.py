@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.models.document import Document
@@ -32,6 +32,41 @@ def get_chunks_by_ids(
             Document.deleted_at.is_(None),
         )
     ).all()
+
+
+def search_chunks_by_keyword(
+    db: Session,
+    *,
+    user_id: UUID,
+    query: str,
+    document_ids: Iterable[UUID] | None = None,
+    limit: int = 20,
+) -> list[UUID]:
+    """Lexical (full-text) search over chunk content, best-ranked first.
+
+    The keyword half of hybrid retrieval: catches exact terms, IDs, and codes
+    that embeddings blur. Tenant- and (optionally) document-scoped, and skips
+    soft-deleted documents — same guarantees as the vector path.
+    """
+    if not query.strip():
+        return []
+    tsquery = func.plainto_tsquery("english", query)
+    rank = func.ts_rank(DocumentChunk.content_tsv, tsquery)
+    conditions = [
+        DocumentChunk.user_id == user_id,
+        Document.deleted_at.is_(None),
+        DocumentChunk.content_tsv.op("@@")(tsquery),
+    ]
+    if document_ids is not None:
+        conditions.append(DocumentChunk.document_id.in_(list(document_ids)))
+    rows = db.execute(
+        select(DocumentChunk.id)
+        .join(Document, Document.id == DocumentChunk.document_id)
+        .where(*conditions)
+        .order_by(rank.desc())
+        .limit(limit)
+    ).all()
+    return [row[0] for row in rows]
 
 
 def create_document_chunk(

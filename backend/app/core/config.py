@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     rerank_candidate_pool: int = 20
     # MMR relevance/diversity balance: 1.0 = pure relevance, 0.0 = pure diversity.
     mmr_lambda: float = 0.7
+    # Hybrid search: blend keyword (Postgres full-text) with vector retrieval via
+    # RRF, so exact terms/IDs that embeddings miss still surface.
+    hybrid_search_enabled: bool = True
     # Query rewriting: fold recent conversation into follow-up questions so they
     # retrieve/generate as standalone queries. Costs one LLM call per follow-up
     # (skipped on the first turn). Set False to disable.

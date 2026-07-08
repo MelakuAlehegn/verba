@@ -73,4 +73,8 @@ CASES: list[EvalCase] = [
     EvalCase("How do I set up single sign-on?", ("onboarding.md",)),
     EvalCase("What roles can users have?", ("onboarding.md",)),
     EvalCase("How fast does support respond?", ("support.md",)),
+    # Exact-term queries — where keyword search tends to beat pure vectors.
+    EvalCase("AES-256", ("security.md",)),
+    EvalCase("TLS 1.3", ("security.md",)),
+    EvalCase("SAML", ("onboarding.md",)),
 ]

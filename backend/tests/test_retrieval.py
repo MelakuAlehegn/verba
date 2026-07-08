@@ -140,6 +140,41 @@ def test_retrieve_reranks_with_mmr_when_pool_exceeds_limit(monkeypatch) -> None:
     assert vector_store.search.call_args.kwargs["with_vectors"] is True
 
 
+def test_hybrid_fuses_keyword_only_hit_into_results(monkeypatch) -> None:
+    # Vector arm finds v1, v2; keyword arm surfaces k1 (an exact-term hit the
+    # vector search missed) plus v1. Hybrid should fold k1 into the results.
+    v1, v2, k1 = uuid4(), uuid4(), uuid4()
+    vector_store = Mock()
+    vector_store.search.return_value = [
+        VectorMatch(chunk_id=v1, score=0.80, vector=[1.0, 0.0]),
+        VectorMatch(chunk_id=v2, score=0.70, vector=[0.0, 1.0]),
+    ]
+    # k1 has no vector from the vector arm → hybrid fetches it.
+    vector_store.get_vectors.return_value = {k1: [0.5, 0.5]}
+    monkeypatch.setattr(
+        f"{MODULE}.search_chunks_by_keyword", lambda *a, **k: [k1, v1]
+    )
+    monkeypatch.setattr(
+        f"{MODULE}.get_chunks_by_ids",
+        lambda db, ids, uid: [_row(cid, "text") for cid in ids],
+    )
+
+    results = retrieve_context(
+        Mock(),
+        user_id=uuid4(),
+        query="AES-256",
+        embedder=_embedder(),
+        vector_store=vector_store,
+        limit=3,
+        candidate_pool=10,
+        hybrid=True,
+    )
+
+    ids = {r.chunk_id for r in results}
+    assert ids == {v1, v2, k1}  # keyword-only hit rescued into the set
+    vector_store.get_vectors.assert_called_once_with([k1])
+
+
 def test_retrieve_without_reranking_does_not_fetch_vectors() -> None:
     vector_store = Mock()
     vector_store.search.return_value = []

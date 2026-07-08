@@ -14,10 +14,11 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.crud.document_chunk import get_chunks_by_ids
+from app.crud.document_chunk import get_chunks_by_ids, search_chunks_by_keyword
 from app.services.rag.embedding import Embedder
+from app.services.rag.fusion import reciprocal_rank_fusion
 from app.services.rag.reranking import mmr_rerank
-from app.services.rag.vector_store import VectorStore
+from app.services.rag.vector_store import VectorMatch, VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,57 @@ class RetrievedChunk:
     content: str
     score: float
     metadata: dict[str, object]
+
+
+def _hybrid_candidates(
+    db: Session,
+    *,
+    query: str,
+    vector_relevant: list[VectorMatch],
+    user_id: UUID,
+    document_ids: Iterable[UUID] | None,
+    limit: int,
+    vector_store: VectorStore,
+    need_vectors: bool,
+) -> list[VectorMatch]:
+    """Fuse the vector ranking with a keyword (full-text) ranking via RRF.
+
+    Returns candidates scored by their fused rank. When MMR will run
+    (`need_vectors`), keyword-only hits lack an embedding, so we fetch those from
+    the vector store to keep reranking uniform.
+    """
+    vector_ids = [match.chunk_id for match in vector_relevant]
+    vector_by_id = {match.chunk_id: match for match in vector_relevant}
+    keyword_ids = search_chunks_by_keyword(
+        db, user_id=user_id, query=query, document_ids=document_ids, limit=limit
+    )
+    fused = reciprocal_rank_fusion([vector_ids, keyword_ids])[:limit]
+    logger.info(
+        "hybrid: %d vector + %d keyword → %d fused",
+        len(vector_ids),
+        len(keyword_ids),
+        len(fused),
+    )
+    if not fused:
+        return []
+
+    extra_vectors: dict[UUID, list[float]] = {}
+    if need_vectors:
+        missing = [
+            chunk_id
+            for chunk_id, _ in fused
+            if vector_by_id.get(chunk_id) is None or vector_by_id[chunk_id].vector is None
+        ]
+        extra_vectors = vector_store.get_vectors(missing) if missing else {}
+
+    candidates: list[VectorMatch] = []
+    for chunk_id, rrf_score in fused:
+        existing = vector_by_id.get(chunk_id)
+        vector = existing.vector if existing and existing.vector is not None else None
+        if vector is None:
+            vector = extra_vectors.get(chunk_id)
+        candidates.append(VectorMatch(chunk_id=chunk_id, score=rrf_score, vector=vector))
+    return candidates
 
 
 def retrieve_context(
@@ -43,6 +95,7 @@ def retrieve_context(
     min_score: float = 0.0,
     candidate_pool: int = 0,
     mmr_lambda: float = 0.7,
+    hybrid: bool = False,
 ) -> list[RetrievedChunk]:
     # Reranking over-fetches a wider candidate pool, then MMR picks `limit` of
     # them by relevance + diversity. Disabled (pool <= limit) → fetch exactly
@@ -58,14 +111,12 @@ def retrieve_context(
         limit=fetch_limit,
         with_vectors=reranking,
     )
-    if not matches:
-        return []
 
     # Drop weak matches: an off-topic question still returns the nearest vectors,
     # but at low similarity — feeding them as "context" invites the model to
-    # answer from general knowledge. Below the threshold, return nothing so the
-    # answer is a grounded "I don't know".
-    top_score = matches[0].score
+    # answer from general knowledge. Below the threshold, drop them so an
+    # off-topic question yields empty context and a grounded "I don't know".
+    top_score = matches[0].score if matches else 0.0
     relevant = [match for match in matches if match.score >= min_score]
     logger.info(
         "retrieval: %d matches, top score %.3f, %d kept (threshold %.2f)",
@@ -74,6 +125,21 @@ def retrieve_context(
         len(relevant),
         min_score,
     )
+
+    # Hybrid: add a keyword arm and fuse. Keyword hits stand on their own (a real
+    # lexical match), so they can rescue an exact term the vector arm ranked low.
+    if hybrid:
+        relevant = _hybrid_candidates(
+            db,
+            query=query,
+            vector_relevant=relevant,
+            user_id=user_id,
+            document_ids=document_ids,
+            limit=fetch_limit,
+            vector_store=vector_store,
+            need_vectors=reranking,
+        )
+
     if not relevant:
         return []
 
