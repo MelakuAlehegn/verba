@@ -67,6 +67,7 @@ def _retrieve_and_prompt(
     search_query = (
         rewrite_query(query, history, llm=llm) if settings.query_rewrite_enabled else query
     )
+    memory = history if settings.conversation_memory_enabled else ()
     # document_ids scopes retrieval to the chat's sources; None means the chat is
     # unscoped, so search all of the user's documents.
     chunks = retrieve_context(
@@ -81,7 +82,7 @@ def _retrieve_and_prompt(
         candidate_pool=settings.rerank_candidate_pool,
         mmr_lambda=settings.mmr_lambda,
     )
-    return chunks, build_prompt(search_query, chunks)
+    return chunks, build_prompt(search_query, chunks, history=memory)
 
 
 def _persist_citations(db: Session, message_id: UUID, chunks: list[RetrievedChunk]) -> None:

@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     # (skipped on the first turn). Set False to disable.
     query_rewrite_enabled: bool = True
     query_rewrite_history_messages: int = 6
+    # Conversation memory: include recent turns in the answer prompt so the model
+    # keeps continuity across a chat (answers still come only from the sources).
+    conversation_memory_enabled: bool = True
     generation_model: str = "gemini-2.5-flash"
     google_api_key: str = ""
     embedding_model: str = "gemini-embedding-001"

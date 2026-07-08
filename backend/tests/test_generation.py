@@ -33,6 +33,32 @@ def test_build_prompt_handles_no_context() -> None:
     assert "anything?" in prompt
 
 
+def test_build_prompt_includes_conversation_history() -> None:
+    history = [("user", "What is the lease term?"), ("assistant", "It runs 24 months.")]
+    prompt = build_prompt("When does it end?", [_chunk("The lease ends on 31 Dec.")], history)
+
+    assert "Conversation so far" in prompt
+    assert "What is the lease term?" in prompt
+    assert "It runs 24 months." in prompt
+    # Context + question still present and the continuity caveat is stated.
+    assert "The lease ends on 31 Dec." in prompt
+    assert "still answer strictly from the sources" in prompt
+
+
+def test_build_prompt_truncates_long_history_turns() -> None:
+    long_answer = "x" * 1000
+    prompt = build_prompt("q", [_chunk("ctx")], [("assistant", long_answer)])
+
+    assert "…" in prompt
+    assert "x" * 1000 not in prompt  # capped, not verbatim
+
+
+def test_build_prompt_without_history_omits_conversation_section() -> None:
+    prompt = build_prompt("q", [_chunk("ctx")])
+
+    assert "Conversation so far" not in prompt
+
+
 def test_gemini_stream_yields_text_and_skips_empty() -> None:
     llm = GeminiLLM.__new__(GeminiLLM)  # bypass real client construction
     llm.model = "gemini-2.5-flash"

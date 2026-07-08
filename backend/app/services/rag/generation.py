@@ -6,7 +6,12 @@ model and present context), independent of which model runs it.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from app.services.rag.retrieval import RetrievedChunk
+
+# Cap each remembered turn so a long earlier answer can't crowd out the context.
+_HISTORY_CHAR_CAP = 600
 
 # Passed as the model's system instruction (weighted more heavily than inline
 # text). Deliberately strict: Verba is document Q&A, not a general chatbot.
@@ -22,11 +27,27 @@ SYSTEM_INSTRUCTION = (
     "questions.\n"
     "4. Cite sources as [Source N], using only the numbered sources in the context and "
     "only those you actually used.\n"
-    "5. Be concise."
+    "5. Be concise.\n"
+    "6. Any conversation history is provided only to interpret follow-up questions and "
+    "keep continuity — answers must still come from the sources, not from earlier replies."
 )
 
 
-def build_prompt(query: str, chunks: list[RetrievedChunk]) -> str:
+def _format_history(history: Sequence[tuple[str, str]]) -> str:
+    lines = []
+    for role, content in history:
+        text = content.strip()
+        if len(text) > _HISTORY_CHAR_CAP:
+            text = f"{text[:_HISTORY_CHAR_CAP]}…"
+        lines.append(f"{role.capitalize()}: {text}")
+    return "\n".join(lines)
+
+
+def build_prompt(
+    query: str,
+    chunks: list[RetrievedChunk],
+    history: Sequence[tuple[str, str]] = (),
+) -> str:
     if chunks:
         context = "\n\n".join(
             f"[Source {index}]\n{chunk.content}" for index, chunk in enumerate(chunks, start=1)
@@ -34,4 +55,13 @@ def build_prompt(query: str, chunks: list[RetrievedChunk]) -> str:
     else:
         context = "(no relevant context found in the user's documents)"
 
-    return f"Context:\n{context}\n\nQuestion: {query}\n\nAnswer:"
+    sections = []
+    if history:
+        sections.append(
+            "Conversation so far (for continuity only — still answer strictly from the "
+            f"sources below):\n{_format_history(history)}"
+        )
+    sections.append(f"Context:\n{context}")
+    sections.append(f"Question: {query}")
+    sections.append("Answer:")
+    return "\n\n".join(sections)
