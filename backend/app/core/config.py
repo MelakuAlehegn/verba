@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     session_secret: str = "change-me"
     session_ttl_days: int = 30
+    # Rate limiting: fixed-window per client IP, shared via Redis. Fail-open.
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = 120
+    rate_limit_window_seconds: int = 60
 
     @property
     def cors_origin_list(self) -> list[str]:

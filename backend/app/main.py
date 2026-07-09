@@ -7,6 +7,7 @@ from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
+from app.core.rate_limit import RateLimitMiddleware
 from app.core.request_context import RequestContextMiddleware
 
 
@@ -32,8 +33,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    if settings.rate_limit_enabled:
+        app.add_middleware(RateLimitMiddleware)
     # Added last → outermost: every request gets an id and access log, even ones
-    # rejected by CORS or failing in another middleware.
+    # rejected by CORS, rate-limited, or failing in another middleware.
     app.add_middleware(RequestContextMiddleware)
 
     register_exception_handlers(app)
