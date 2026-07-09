@@ -29,25 +29,7 @@ function handleFrame(frame: string, callbacks: StreamCallbacks) {
   else if (typeof data.delta === "string") callbacks.onDelta(data.delta);
 }
 
-/**
- * Stream an assistant reply over SSE. The endpoint is a POST returning
- * text/event-stream, so we read the body with a ReadableStream reader rather
- * than EventSource (which only supports GET).
- */
-export async function streamMessage(
-  chatId: string,
-  content: string,
-  callbacks: StreamCallbacks,
-  signal?: AbortSignal,
-): Promise<void> {
-  const response = await fetch(`${env.apiUrl}/chats/${chatId}/messages/stream`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
-    signal,
-  });
-
+async function readSse(response: Response, callbacks: StreamCallbacks): Promise<void> {
   if (!response.ok || !response.body) {
     callbacks.onError(new Error(`Stream failed (${response.status})`));
     return;
@@ -68,4 +50,40 @@ export async function streamMessage(
     }
   }
   if (buffer.trim()) handleFrame(buffer, callbacks);
+}
+
+/**
+ * Stream an assistant reply over SSE. The endpoint is a POST returning
+ * text/event-stream, so we read the body with a ReadableStream reader rather
+ * than EventSource (which only supports GET). Abort the `signal` to stop.
+ */
+export async function streamMessage(
+  chatId: string,
+  content: string,
+  callbacks: StreamCallbacks,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(`${env.apiUrl}/chats/${chatId}/messages/stream`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+    signal,
+  });
+  await readSse(response, callbacks);
+}
+
+/** Re-answer the chat's last question: the server drops the old answer and
+ *  streams a fresh one. No body — the question is taken from history. */
+export async function streamRegenerate(
+  chatId: string,
+  callbacks: StreamCallbacks,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(`${env.apiUrl}/chats/${chatId}/messages/regenerate`, {
+    method: "POST",
+    credentials: "include",
+    signal,
+  });
+  await readSse(response, callbacks);
 }

@@ -29,11 +29,11 @@ from app.services.chat_service import (
     update_chat_for_user,
 )
 from app.services.message_service import (
-    finalize_assistant_message,
     list_messages_for_chat,
     post_message_to_chat,
     recent_history,
     start_message_turn,
+    start_regeneration,
     stream_message_reply,
 )
 from app.services.rag.embedding import Embedder, get_embedder
@@ -159,43 +159,37 @@ def post_message_endpoint(
     )
 
 
-@router.post("/{chat_id}/messages/stream")
-def stream_message_endpoint(
-    payload: MessageCreate,
-    chat: Chat = Depends(get_owned_chat),
-    db: Session = Depends(get_db),
-    embedder: Embedder = Depends(get_embedder),
-    vector_store: VectorStore = Depends(get_vector_store),
-    llm: LLMProvider = Depends(get_llm_provider),
+def _answer_stream_response(
+    *,
+    user_id: UUID,
+    chat_id: str,
+    assistant_id: UUID,
+    query: str,
+    history: list[tuple[str, str]],
+    document_ids: list[UUID] | None,
+    embedder: Embedder,
+    vector_store: VectorStore,
+    llm: LLMProvider,
 ) -> StreamingResponse:
-    # Capture history before persisting this turn (so the rewriter sees only
-    # prior conversation), then persist the user turn + an empty 'streaming'
-    # assistant row synchronously and capture ids/history into locals for the
-    # generator (which runs in a separate DB session).
-    history = recent_history(db, chat.id)
-    document_ids = resolve_chat_scope(db, chat)
-    _, assistant_message = start_message_turn(db, chat, payload.content)
-    user_id = chat.user_id
-    chat_id = str(chat.id)
-    assistant_id = assistant_message.id
-    query = payload.content
+    """Stream an assistant answer over SSE. Shared by the send and regenerate
+    endpoints — the assistant row is already open in 'streaming' state."""
 
     def event_stream() -> Iterator[str]:
         # The generator owns its own DB session: it outlives the request's
         # session and does live writes (token accumulation → final persist).
         gen_db = SessionLocal()
+        replies = stream_message_reply(
+            gen_db,
+            user_id=user_id,
+            query=query,
+            assistant_message_id=assistant_id,
+            embedder=embedder,
+            vector_store=vector_store,
+            llm=llm,
+            history=history,
+            document_ids=document_ids,
+        )
         try:
-            replies = stream_message_reply(
-                gen_db,
-                user_id=user_id,
-                query=query,
-                assistant_message_id=assistant_id,
-                embedder=embedder,
-                vector_store=vector_store,
-                llm=llm,
-                history=history,
-                document_ids=document_ids,
-            )
             # Drain tokens; the generator returns the citation summary on finish.
             citations: list[dict[str, object]] = []
             while True:
@@ -209,13 +203,73 @@ def stream_message_endpoint(
                 event="done",
             )
         except Exception:
-            finalize_assistant_message(gen_db, assistant_id, content="", status="failed")
+            # stream_message_reply persisted status=failed in its own finally.
             yield format_sse({"message": "Generation failed"}, event="error")
         finally:
+            # If the client disconnected mid-stream, closing the inner generator
+            # raises GeneratorExit inside it → it persists the partial as
+            # 'stopped' (never leaving the row stuck at 'streaming').
+            close = getattr(replies, "close", None)
+            if close is not None:
+                close()
             gen_db.close()
 
     return StreamingResponse(
         event_stream(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.post("/{chat_id}/messages/stream")
+def stream_message_endpoint(
+    payload: MessageCreate,
+    chat: Chat = Depends(get_owned_chat),
+    db: Session = Depends(get_db),
+    embedder: Embedder = Depends(get_embedder),
+    vector_store: VectorStore = Depends(get_vector_store),
+    llm: LLMProvider = Depends(get_llm_provider),
+) -> StreamingResponse:
+    # Capture history + scope before persisting this turn, then open the user
+    # turn + an empty 'streaming' assistant row for the generator to fill.
+    history = recent_history(db, chat.id)
+    document_ids = resolve_chat_scope(db, chat)
+    _, assistant_message = start_message_turn(db, chat, payload.content)
+    return _answer_stream_response(
+        user_id=chat.user_id,
+        chat_id=str(chat.id),
+        assistant_id=assistant_message.id,
+        query=payload.content,
+        history=history,
+        document_ids=document_ids,
+        embedder=embedder,
+        vector_store=vector_store,
+        llm=llm,
+    )
+
+
+@router.post("/{chat_id}/messages/regenerate")
+def regenerate_message_endpoint(
+    chat: Chat = Depends(get_owned_chat),
+    db: Session = Depends(get_db),
+    embedder: Embedder = Depends(get_embedder),
+    vector_store: VectorStore = Depends(get_vector_store),
+    llm: LLMProvider = Depends(get_llm_provider),
+) -> StreamingResponse:
+    # Drop the last assistant turn and re-answer the same question.
+    context = start_regeneration(db, chat)
+    if context is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Nothing to regenerate."
+        )
+    return _answer_stream_response(
+        user_id=chat.user_id,
+        chat_id=str(chat.id),
+        assistant_id=context.assistant_message_id,
+        query=context.query,
+        history=context.history,
+        document_ids=context.document_ids,
+        embedder=embedder,
+        vector_store=vector_store,
+        llm=llm,
     )

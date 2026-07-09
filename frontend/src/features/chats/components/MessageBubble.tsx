@@ -32,6 +32,7 @@ export function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === "user";
   const isStreaming = message.status === "streaming";
   const isFailed = message.status === "failed";
+  const isStopped = message.status === "stopped";
 
   if (isUser) {
     return (
@@ -63,18 +64,23 @@ export function MessageBubble({ message }: { message: Message }) {
             ) : (
               <>
                 <CitationChips content={message.content} citations={message.citations} />
-                <div className="mt-2 flex">
+                <div className="mt-2 flex items-center gap-3">
                   <CopyButton content={message.content} />
+                  {isStopped ? (
+                    <span className="text-xs text-muted-foreground">Stopped</span>
+                  ) : null}
                 </div>
               </>
             )}
           </>
-        ) : (
+        ) : isStreaming ? (
           <span className="inline-flex gap-1 py-1">
             <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:-0.3s]" />
             <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:-0.15s]" />
             <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50" />
           </span>
+        ) : (
+          <p className="text-sm text-muted-foreground">Stopped before an answer was generated.</p>
         )}
       </div>
     </div>

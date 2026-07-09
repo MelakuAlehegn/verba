@@ -1,4 +1,4 @@
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -8,6 +8,9 @@ interface ChatComposerProps {
   autoFocus?: boolean;
   placeholder?: string;
   initialValue?: string;
+  /** When streaming, the send button becomes a Stop button. */
+  streaming?: boolean;
+  onStop?: () => void;
 }
 
 export function ChatComposer({
@@ -16,6 +19,8 @@ export function ChatComposer({
   autoFocus,
   placeholder,
   initialValue,
+  streaming,
+  onStop,
 }: ChatComposerProps) {
   const [value, setValue] = useState(initialValue ?? "");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -53,15 +58,27 @@ export function ChatComposer({
           placeholder={placeholder ?? "Ask anything about your documents…"}
           className="max-h-[200px] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
         />
-        <Button
-          size="icon"
-          className="h-9 w-9 shrink-0 rounded-lg"
-          onClick={submit}
-          disabled={disabled || !value.trim()}
-          aria-label="Send message"
-        >
-          <ArrowUp className="h-4 w-4" />
-        </Button>
+        {streaming ? (
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-9 w-9 shrink-0 rounded-lg"
+            onClick={onStop}
+            aria-label="Stop generating"
+          >
+            <Square className="h-3.5 w-3.5 fill-current" />
+          </Button>
+        ) : (
+          <Button
+            size="icon"
+            className="h-9 w-9 shrink-0 rounded-lg"
+            onClick={submit}
+            disabled={disabled || !value.trim()}
+            aria-label="Send message"
+          >
+            <ArrowUp className="h-4 w-4" />
+          </Button>
+        )}
       </div>
       <p className="mt-2 text-center text-xs text-muted-foreground">
         Verba answers from your documents and can be wrong. Check important details.

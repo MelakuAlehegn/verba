@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 import { chatsQueryKey, messagesQueryKey } from "@/features/chats/hooks";
-import { streamMessage } from "@/lib/api/streaming";
+import { type StreamCallbacks, streamMessage, streamRegenerate } from "@/lib/api/streaming";
 import type { Message } from "@/lib/api/types";
 
 function tempMessage(chatId: string, role: "user" | "assistant", content: string): Message {
@@ -19,9 +19,10 @@ function tempMessage(chatId: string, role: "user" | "assistant", content: string
 }
 
 /**
- * Drives a chat turn: optimistically shows the user message + a streaming
- * assistant bubble, fills it from the SSE stream, then reconciles with the
- * server (which has persisted the real rows) and clears the optimistic pair.
+ * Drives a chat turn: optimistically shows a streaming assistant bubble, fills
+ * it from the SSE stream, then reconciles with the server (which persists the
+ * real rows) and clears the optimistic pair. Supports stop (abort) and
+ * regenerate (re-answer the last question).
  */
 export function useChatStream(chatId: string) {
   const queryClient = useQueryClient();
@@ -29,26 +30,32 @@ export function useChatStream(chatId: string) {
   const [isStreaming, setIsStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const send = useCallback(
-    async (content: string) => {
-      const userMessage = tempMessage(chatId, "user", content);
-      const assistantMessage = tempMessage(chatId, "assistant", "");
-      const assistantId = assistantMessage.id;
-      setPending([userMessage, assistantMessage]);
-      setIsStreaming(true);
+  const refetch = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: messagesQueryKey(chatId) });
+    await queryClient.invalidateQueries({ queryKey: chatsQueryKey });
+  }, [chatId, queryClient]);
 
+  // Shared driver: seed optimistic bubbles, stream into the assistant one, then
+  // reconcile. Stopping (abort) still reconciles — the server persisted the
+  // partial answer as 'stopped'.
+  const drive = useCallback(
+    async (
+      seed: Message[],
+      assistantId: string,
+      call: (callbacks: StreamCallbacks, signal: AbortSignal) => Promise<void>,
+    ) => {
+      setPending(seed);
+      setIsStreaming(true);
       const controller = new AbortController();
       abortRef.current = controller;
 
-      const patchAssistant = (patch: Partial<Message>) =>
+      const patch = (patch: Partial<Message>) =>
         setPending((prev) =>
           prev.map((message) => (message.id === assistantId ? { ...message, ...patch } : message)),
         );
 
       try {
-        await streamMessage(
-          chatId,
-          content,
+        await call(
           {
             onDelta: (delta) =>
               setPending((prev) =>
@@ -58,24 +65,59 @@ export function useChatStream(chatId: string) {
                     : message,
                 ),
               ),
-            onDone: () => patchAssistant({ status: "complete" }),
-            onError: () => patchAssistant({ status: "failed" }),
+            onDone: () => patch({ status: "complete" }),
+            onError: () => patch({ status: "failed" }),
           },
           controller.signal,
         );
-        // Server now holds the persisted messages; refetch then drop the optimistic pair.
-        await queryClient.invalidateQueries({ queryKey: messagesQueryKey(chatId) });
-        await queryClient.invalidateQueries({ queryKey: chatsQueryKey });
+        await refetch();
         setPending([]);
       } catch {
-        patchAssistant({ status: "failed" });
+        if (controller.signal.aborted) {
+          // Stopped by the user: the server saved the partial answer.
+          await refetch();
+          setPending([]);
+        } else {
+          patch({ status: "failed" });
+        }
       } finally {
         setIsStreaming(false);
         abortRef.current = null;
       }
     },
-    [chatId, queryClient],
+    [refetch],
   );
 
-  return { pending, isStreaming, send };
+  const send = useCallback(
+    async (content: string) => {
+      const user = tempMessage(chatId, "user", content);
+      const assistant = tempMessage(chatId, "assistant", "");
+      await drive([user, assistant], assistant.id, (callbacks, signal) =>
+        streamMessage(chatId, content, callbacks, signal),
+      );
+    },
+    [chatId, drive],
+  );
+
+  const regenerate = useCallback(async () => {
+    // Optimistically hide the previous answer so it isn't shown alongside the
+    // new streaming one; the refetch reconciles with the server afterwards.
+    const key = messagesQueryKey(chatId);
+    const current = queryClient.getQueryData<Message[]>(key) ?? [];
+    const lastAssistant = [...current].reverse().find((message) => message.role === "assistant");
+    if (lastAssistant) {
+      queryClient.setQueryData<Message[]>(
+        key,
+        current.filter((message) => message.id !== lastAssistant.id),
+      );
+    }
+    const assistant = tempMessage(chatId, "assistant", "");
+    await drive([assistant], assistant.id, (callbacks, signal) =>
+      streamRegenerate(chatId, callbacks, signal),
+    );
+  }, [chatId, drive, queryClient]);
+
+  const stop = useCallback(() => abortRef.current?.abort(), []);
+
+  return { pending, isStreaming, send, stop, regenerate };
 }

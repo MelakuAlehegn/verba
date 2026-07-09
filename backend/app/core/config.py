@@ -27,7 +27,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "document-qa-rag-api"
+    app_name: str = "Verba"
     app_version: str = "0.1.0"
     environment: Literal["local", "staging", "production", "test"] = "local"
     api_v1_prefix: str = "/api/v1"

@@ -3,7 +3,11 @@ from unittest.mock import Mock
 from uuid import uuid4
 
 from app.schemas.message import MessageCreate
-from app.services.message_service import post_message_to_chat, stream_message_reply
+from app.services.message_service import (
+    post_message_to_chat,
+    start_regeneration,
+    stream_message_reply,
+)
 
 MODULE = "app.services.message_service"
 
@@ -172,3 +176,61 @@ def test_stream_reply_yields_tokens_then_persists(monkeypatch) -> None:
 
     assert tokens == ["Hel", "lo"]
     assert finalized == {"message_id": message_id, "content": "Hello", "status": "complete"}
+
+
+def test_stream_reply_persists_partial_when_stopped(monkeypatch) -> None:
+    monkeypatch.setattr(f"{MODULE}.retrieve_context", lambda *a, **k: [])
+    finalized = {}
+
+    def fake_finalize(_db, message_id, *, content, status, chunks=None):
+        finalized.update(content=content, status=status)
+
+    monkeypatch.setattr(f"{MODULE}.finalize_assistant_message", fake_finalize)
+
+    message_id = uuid4()
+    replies = stream_message_reply(
+        Mock(),
+        user_id=uuid4(),
+        query="q",
+        assistant_message_id=message_id,
+        embedder=Mock(),
+        vector_store=Mock(),
+        llm=_fake_llm(["Par", "tial", " answer"]),
+    )
+    assert next(replies) == "Par"  # consume one token, then simulate a client stop
+    replies.close()
+
+    # Whatever streamed so far is persisted, tagged 'stopped' — not left streaming.
+    assert finalized == {"content": "Par", "status": "stopped"}
+
+
+def test_start_regeneration_replaces_last_answer(monkeypatch) -> None:
+    chat = SimpleNamespace(id=uuid4(), user_id=uuid4())
+    user_msg = SimpleNamespace(role="user", content="What is the fee?")
+    assistant_msg = SimpleNamespace(role="assistant", content="It's $10.")
+
+    monkeypatch.setattr(
+        f"{MODULE}.get_recent_messages", lambda db, cid, limit: [user_msg, assistant_msg]
+    )
+    deleted = []
+    monkeypatch.setattr(f"{MODULE}.delete_message", lambda db, m: deleted.append(m))
+    new_id = uuid4()
+    monkeypatch.setattr(
+        f"{MODULE}.create_message", lambda _db, **k: SimpleNamespace(id=new_id, **k)
+    )
+    monkeypatch.setattr(f"{MODULE}.touch_chat", lambda db, c: c)
+    monkeypatch.setattr(f"{MODULE}.resolve_chat_scope", lambda db, chat: None)
+
+    context = start_regeneration(Mock(), chat)
+
+    assert context is not None
+    assert context.query == "What is the fee?"  # re-answers the same question
+    assert context.assistant_message_id == new_id  # a fresh streaming row
+    assert deleted == [assistant_msg]  # old answer removed
+
+
+def test_start_regeneration_returns_none_without_prior_answer(monkeypatch) -> None:
+    chat = SimpleNamespace(id=uuid4(), user_id=uuid4())
+    monkeypatch.setattr(f"{MODULE}.get_recent_messages", lambda db, cid, limit: [])
+
+    assert start_regeneration(Mock(), chat) is None

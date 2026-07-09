@@ -84,3 +84,9 @@ def set_message_content(db: Session, message: Message, *, content: str, status: 
     message.status = status
     db.flush()
     return message
+
+
+def delete_message(db: Session, message: Message) -> None:
+    # message_citations cascade via their FK (ondelete CASCADE).
+    db.delete(message)
+    db.flush()

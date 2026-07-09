@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -10,6 +11,7 @@ from app.core.config import get_settings
 from app.crud.chat import touch_chat
 from app.crud.message import (
     create_message,
+    delete_message,
     get_message_by_id,
     get_recent_messages,
     list_messages,
@@ -190,6 +192,62 @@ def start_message_turn(db: Session, chat: Chat, content: str) -> tuple[Message, 
     return user_message, assistant_message
 
 
+@dataclass
+class RegenContext:
+    query: str
+    assistant_message_id: UUID
+    history: list[tuple[str, str]]
+    document_ids: Sequence[UUID] | None
+
+
+def start_regeneration(db: Session, chat: Chat) -> RegenContext | None:
+    """Set up a re-answer of the chat's last question: drop the last assistant
+    turn and open a fresh empty 'streaming' one for the same user message.
+
+    Returns None if there's nothing to regenerate (no prior assistant turn).
+    """
+    settings = get_settings()
+    recent = list(get_recent_messages(db, chat.id, limit=settings.query_rewrite_history_messages))
+    last_assistant = next((m for m in reversed(recent) if m.role == "assistant"), None)
+    if last_assistant is None:
+        return None
+    assistant_index = recent.index(last_assistant)
+    user_message = next(
+        (recent[i] for i in range(assistant_index - 1, -1, -1) if recent[i].role == "user"),
+        None,
+    )
+    if user_message is None:
+        return None
+
+    # History = turns strictly before the question being re-answered.
+    user_index = recent.index(user_message)
+    history = [
+        (m.role, m.content) for m in recent[:user_index] if m.content and m.content.strip()
+    ]
+
+    delete_message(db, last_assistant)
+    new_assistant = create_message(
+        db,
+        chat_id=chat.id,
+        user_id=chat.user_id,
+        role="assistant",
+        content="",
+        status="streaming",
+        model=settings.generation_model,
+        created_at=datetime.now(UTC),
+    )
+    document_ids = resolve_chat_scope(db, chat)
+    touch_chat(db, chat)
+    db.commit()
+    db.refresh(new_assistant)
+    return RegenContext(
+        query=user_message.content,
+        assistant_message_id=new_assistant.id,
+        history=history,
+        document_ids=document_ids,
+    )
+
+
 def stream_message_reply(
     db: Session,
     *,
@@ -216,12 +274,30 @@ def stream_message_reply(
         llm=llm,
     )
     parts: list[str] = []
-    for token in llm.stream(prompt, system=SYSTEM_INSTRUCTION):
-        parts.append(token)
-        yield token
-    finalize_assistant_message(
-        db, assistant_message_id, content="".join(parts), status="complete", chunks=chunks
-    )
+    # Persist exactly once in the finally, tagged by how we left the loop:
+    #   normal end → complete; client disconnect/stop (GeneratorExit) → stopped;
+    #   any other error → failed. This guarantees the assistant row never stays
+    #   stuck at "streaming" — even if the client aborts mid-stream.
+    outcome = "stopped"
+    try:
+        for token in llm.stream(prompt, system=SYSTEM_INSTRUCTION):
+            parts.append(token)
+            yield token
+        outcome = "complete"
+    except GeneratorExit:
+        outcome = "stopped"
+        raise
+    except Exception:
+        outcome = "failed"
+        raise
+    finally:
+        finalize_assistant_message(
+            db,
+            assistant_message_id,
+            content="".join(parts),
+            status=outcome,
+            chunks=chunks if outcome != "failed" else None,
+        )
     return _citation_summaries(chunks)
 
 
