@@ -47,6 +47,8 @@ class VectorMatch:
 
 
 class VectorStore(Protocol):
+    def health_check(self) -> None: ...
+
     def ensure_collection(self) -> None: ...
 
     def upsert(self, points: Sequence[VectorPoint]) -> None: ...
@@ -71,6 +73,10 @@ class QdrantVectorStore:
         self._client = QdrantClient(url=settings.qdrant_url)
         self._collection = settings.qdrant_collection
         self._dimension = settings.embedding_dimension
+
+    def health_check(self) -> None:
+        # Cheap round-trip that fails if Qdrant is unreachable.
+        self._client.get_collections()
 
     def ensure_collection(self) -> None:
         if self._client.collection_exists(self._collection):

@@ -15,6 +15,9 @@ class FakeVectorStore:
     def __init__(self) -> None:
         self.points: list[VectorPoint] = []
 
+    def health_check(self) -> None:
+        pass
+
     def ensure_collection(self) -> None:
         pass
 
