@@ -2,7 +2,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Convenient-but-insecure defaults that must be overridden before production.
+_INSECURE_DEFAULTS = {
+    "session_secret": "change-me",
+    "s3_access_key": "minioadmin",
+    "s3_secret_key": "minioadmin",
+}
 
 # Anchor .env to backend/ (this file is backend/app/core/config.py) so it loads
 # regardless of the process's working directory — uvicorn, celery, alembic, or
@@ -88,6 +96,31 @@ class Settings(BaseSettings):
     @property
     def cookie_secure(self) -> bool:
         return self.environment == "production"
+
+    @model_validator(mode="after")
+    def _reject_insecure_production_config(self) -> "Settings":
+        """Fail fast at startup if production is left with dev defaults/secrets.
+
+        Local and test keep their convenient defaults; only ``production`` is
+        held to the bar, so a misconfigured deploy crashes loudly instead of
+        silently shipping with ``change-me`` or ``minioadmin`` credentials.
+        """
+        if self.environment != "production":
+            return self
+        problems = [
+            f"{field} is still the insecure default"
+            for field, insecure in _INSECURE_DEFAULTS.items()
+            if getattr(self, field) == insecure
+        ]
+        if not self.google_api_key:
+            problems.append("google_api_key is not set")
+        if not self.session_secret:
+            problems.append("session_secret is empty")
+        if problems:
+            raise ValueError(
+                "Insecure configuration for production: " + "; ".join(problems)
+            )
+        return self
 
 
 @lru_cache(maxsize=1)
