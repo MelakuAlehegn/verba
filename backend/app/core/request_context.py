@@ -45,6 +45,9 @@ class RequestContextMiddleware:
         inbound = headers.get(REQUEST_ID_HEADER.encode())
         request_id = inbound.decode() if inbound else str(uuid4())
         token = _request_id.set(request_id)
+        # Also stash on scope state so exception handlers can read it even when
+        # the 500 handler runs outside this middleware's contextvar scope.
+        scope.setdefault("state", {})["request_id"] = request_id
 
         method = scope.get("method")
         path = scope.get("path")

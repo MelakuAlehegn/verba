@@ -30,7 +30,14 @@ function resolveUrl(path: string): string {
 }
 
 function extractErrorMessage(body: unknown, fallback: string): string {
-  if (typeof body === "object" && body !== null && "detail" in body) {
+  if (typeof body !== "object" || body === null) return fallback;
+
+  // Preferred: the API's error envelope { error: { code, message }, request_id }.
+  const envelope = (body as { error?: { message?: unknown } }).error;
+  if (envelope && typeof envelope.message === "string") return envelope.message;
+
+  // Fallback: FastAPI's default { detail } shape.
+  if ("detail" in body) {
     const detail = (body as { detail: unknown }).detail;
     if (typeof detail === "string") return detail;
     if (Array.isArray(detail)) return detail.map(String).join(", ");
